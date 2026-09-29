@@ -1,0 +1,251 @@
+{
+  "repo": "PaulBratslavsky/matfinder",
+  "specPath": "docs/plan/06-build-spec.md",
+  "specRef": "945a14abb38166ed4b4a21dc000126d26701537b",
+  "milestone": {
+    "title": "MatFinder POC",
+    "description": "Build of docs/plan/06-build-spec.md @ 945a14a (M0–M9)"
+  },
+  "project": {
+    "owner": "PaulBratslavsky",
+    "title": "MatFinder POC"
+  },
+  "labels": [
+    {
+      "name": "spec:matfinder",
+      "color": "5319e7",
+      "description": "MatFinder build spec"
+    },
+    {
+      "name": "type:epic",
+      "color": "3e4b9e",
+      "description": "Build tracker issue"
+    },
+    {
+      "name": "type:build-step",
+      "color": "0e8a16",
+      "description": "One milestone of a build spec"
+    },
+    {
+      "name": "area:backend",
+      "color": "c5def5",
+      "description": "Strapi / server / database"
+    },
+    {
+      "name": "area:app",
+      "color": "bfdadc",
+      "description": "Frontend / mobile / web client"
+    },
+    {
+      "name": "area:auth",
+      "color": "f9d0c4",
+      "description": "Sign-in, sessions, permissions"
+    },
+    {
+      "name": "area:ai",
+      "color": "d4c5f9",
+      "description": "MCP, AI tools, agents"
+    },
+    {
+      "name": "area:infra",
+      "color": "fef2c0",
+      "description": "Repo setup, CI/CD, hosting, deploy"
+    },
+    {
+      "name": "area:tests",
+      "color": "e6e6e6",
+      "description": "Test suites"
+    }
+  ],
+  "issues": [
+    {
+      "key": "epic",
+      "title": "[MatFinder] MatFinder POC build",
+      "body": "00-epic.md",
+      "labels": [
+        "spec:matfinder",
+        "type:epic"
+      ],
+      "parent": null,
+      "blockedBy": [],
+      "number": 2,
+      "id": 5637214202,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/2"
+    },
+    {
+      "key": "m0",
+      "title": "[MatFinder] M0 · Housekeeping",
+      "body": "01-m0-housekeeping.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:infra"
+      ],
+      "parent": "epic",
+      "blockedBy": [],
+      "number": 3,
+      "id": 5637215118,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/3"
+    },
+    {
+      "key": "m1",
+      "title": "[MatFinder] M1 · Strapi upgrade + Strapi Cloud linked",
+      "body": "02-m1-strapi-upgrade.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:infra"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m0"
+      ],
+      "number": 4,
+      "id": 5637216001,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/4"
+    },
+    {
+      "key": "m2",
+      "title": "[MatFinder] M2 · Content model, Document Service middlewares, unique indexes",
+      "body": "03-m2-content-model.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m1"
+      ],
+      "number": 5,
+      "id": 5637217209,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/5"
+    },
+    {
+      "key": "m3",
+      "title": "[MatFinder] M3 · Auth (Better Auth)",
+      "body": "04-m3-auth.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:auth"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m2"
+      ],
+      "number": 6,
+      "id": 5637218248,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/6"
+    },
+    {
+      "key": "m4",
+      "title": "[MatFinder] M4 · School API (the server-enforced gate)",
+      "body": "05-m4-school-api.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:auth"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m3"
+      ],
+      "number": 7,
+      "id": 5637219216,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/7"
+    },
+    {
+      "key": "m5",
+      "title": "[MatFinder] M5 · MCP server + custom tools",
+      "body": "06-m5-mcp.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:ai"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m4"
+      ],
+      "number": 8,
+      "id": 5637220630,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/8"
+    },
+    {
+      "key": "m6",
+      "title": "[MatFinder] M6 · Expo app (SDK 57, NativeWind, React Native Reusables, maps, data)",
+      "body": "07-m6-expo-app.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:app"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m4"
+      ],
+      "number": 9,
+      "id": 5637222012,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/9"
+    },
+    {
+      "key": "m7",
+      "title": "[MatFinder] M7 · Auth UI + gated school page",
+      "body": "08-m7-auth-ui.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:app",
+        "area:auth"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m6"
+      ],
+      "number": 10,
+      "id": 5637223092,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/10"
+    },
+    {
+      "key": "m8",
+      "title": "[MatFinder] M8 · Sample seed + media",
+      "body": "09-m8-sample-seed.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m5"
+      ],
+      "number": 11,
+      "id": 5637224279,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/11"
+    },
+    {
+      "key": "m9",
+      "title": "[MatFinder] M9 · Tests, deploy, and real listings",
+      "body": "10-m9-tests-deploy.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:tests",
+        "area:infra"
+      ],
+      "parent": "epic",
+      "blockedBy": [
+        "m7",
+        "m8"
+      ],
+      "number": 12,
+      "id": 5637225321,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/12"
+    }
+  ]
+}
