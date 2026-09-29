@@ -30,7 +30,7 @@ For each decision: what was chosen, what else was considered, and why it fits th
 - **Why:** R12–R14 (curator in the admin), R13 (MCP), R10 (Better Auth), and reuse of the existing app and map field.
 
 ## Database
-- **Choice:** **PostgreSQL**: local via Docker Compose, Strapi Cloud's managed Postgres in production.
+- **Choice:** **PostgreSQL**: installed natively locally (Homebrew `postgresql@17`; **no Docker**, per the user's rule for Strapi apps), Strapi Cloud's managed Postgres in production.
 - **Considered:** keeping SQLite locally (current setup).
 - **Why:** dev/prod parity, and Better Auth on SQLite has known boot-time issues (early DB-open `SqliteError`). Postgres is the documented, safer path for this beta plugin.
 
