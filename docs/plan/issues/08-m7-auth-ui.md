@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M7** (step 8 of 10) · Blocked by: {{#m6}} · Spec: [06-build-spec.md @ 945a14a](https://github.com/PaulBratslavsky/matfinder/blob/945a14abb38166ed4b4a21dc000126d26701537b/docs/plan/06-build-spec.md#m7-auth-ui--gated-school-page)
+> **Part of {{#epic}}** · **M7** (step 8 of 10) · Blocked by: {{#m6}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m7-auth-ui--gated-school-page)
 
 ## Goal
 People can sign up and sign in from the app (web and native). The full school page is reachable only with a session: a signed-out "View school" leads through sign-up and back to **that** school. The session survives reloads and restarts, and signing out re-gates school pages.

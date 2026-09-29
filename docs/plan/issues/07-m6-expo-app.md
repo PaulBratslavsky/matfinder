@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M6** (step 7 of 10) · Blocked by: {{#m4}} · Spec: [06-build-spec.md @ 945a14a](https://github.com/PaulBratslavsky/matfinder/blob/945a14abb38166ed4b4a21dc000126d26701537b/docs/plan/06-build-spec.md#m6-expo-app-sdk-57-nativewind-react-native-reusables-maps-data)
+> **Part of {{#epic}}** · **M6** (step 7 of 10) · Blocked by: {{#m4}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m6-expo-app-sdk-57-nativewind-react-native-reusables-maps-data)
 
 ## Goal
 One Expo codebase (iOS, Android, web) opens on a Mapbox map of Las Vegas schools from the public directory. It has search, the *Training today* / *Visitors welcome* / *Gi* / *No-Gi* filters, and a preview card that shows the next session in **Las Vegas time**, all while signed out.

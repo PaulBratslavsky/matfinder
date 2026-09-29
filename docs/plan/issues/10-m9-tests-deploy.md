@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M9** (step 10 of 10) · Blocked by: {{#m7}}, {{#m8}} · Spec: [06-build-spec.md @ 945a14a](https://github.com/PaulBratslavsky/matfinder/blob/945a14abb38166ed4b4a21dc000126d26701537b/docs/plan/06-build-spec.md#m9-tests-deploy-and-real-listings)
+> **Part of {{#epic}}** · **M9** (step 10 of 10) · Blocked by: {{#m7}}, {{#m8}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m9-tests-deploy-and-real-listings)
 
 ## Goal
 Unit, server integration, and Playwright suites are green. The backend runs on Strapi Cloud and the web app on Vercel with **same-origin** auth. 3–5 real Las Vegas schools are published, and every proof-of-concept acceptance criterion passes on the deployed URLs.
