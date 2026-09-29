@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M5** (step 6 of 10) · Blocked by: {{#m4}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m5-mcp-server--custom-tools)
+> **Part of {{#epic}}** · **M5** (step 6 of 10) · Blocked by: {{#m4}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m5-mcp-server--custom-tools)
 
 ## Goal
 The curator manages listings by talking to Claude through Strapi's **built-in MCP server**, which exposes **exactly 8** MatFinder tools. The tools only ever write **drafts**; a human publishes in the Strapi admin.

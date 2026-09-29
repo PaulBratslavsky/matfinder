@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M2** (step 3 of 10) · Blocked by: {{#m1}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m2-content-model-document-service-middlewares-unique-indexes)
+> **Part of {{#epic}}** · **M2** (step 3 of 10) · Blocked by: {{#m1}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m2-content-model-document-service-middlewares-unique-indexes)
 
 ## Goal
 The four MatFinder content types (city, affiliation, instructor, school) and four components exist exactly as specified; every write gets a slug and validated data through Document Service middlewares; and Postgres enforces slug uniqueness with real indexes.
@@ -224,7 +224,7 @@ If a check fails, the deviation protocol applies: stop and ask.
 - [ ] The admin shows all types (City, Affiliation, Instructor, School) and components (Pricing, Contact, Amenities, Session)
 - [ ] Creating a school through the Document Service without a slug gets one. For example, from `npx strapi console`: `await strapi.documents('api::school.school').create({ data: { name: 'Test School', location: { … } } })` *(added: not in spec: the console example)*
 - [ ] A bad schedule row (`endTime <= startTime`, an invalid enum, or more than 100 rows) is rejected with a `ValidationError`
-- [ ] `\d schools` in psql shows the partial unique index, e.g. `psql -U strapi -d matfinder -c '\d schools'` *(added: not in spec: the command)*
+- [ ] `sqlite3 server/.tmp/data.db '.indexes schools'` lists the partial unique index
 
 ## Acceptance criteria this step unlocks
 None directly; M4–M8 build on this model.
