@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M4** (step 5 of 10) · Blocked by: {{#m3}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m4-school-api-the-server-enforced-gate)
+> **Part of {{#epic}}** · **M4** (step 5 of 10) · Blocked by: {{#m3}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m4-school-api-the-server-enforced-gate)
 
 ## Goal
 Two custom endpoints serve school data with the access gate **enforced on the server**: a public, trimmed directory for the map (`/api/schools/directory`) and an account-only full school page (`/api/schools/slug/:slug`). Core CRUD routes stay closed.

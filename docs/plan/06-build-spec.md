@@ -25,7 +25,7 @@ Anyone can open the map, search, and filter Las Vegas schools by *training today
 | Area | Choice |
 |---|---|
 | Backend / CMS | **Strapi v5, upgraded from 5.33.3 to the latest 5.x** (5.55.1 on 2026-09-27; **floor 5.49**). Node **24 LTS** |
-| Database | **PostgreSQL**: native Homebrew install locally (**no Docker**), Strapi Cloud managed in production |
+| Database | **SQLite locally** (Strapi's default; no local Postgres, no Docker), **PostgreSQL** managed by Strapi Cloud in production |
 | Backend hosting | **Strapi Cloud** (root directory `server`) |
 | App | **Expo SDK 57 + Expo Router + React Native Web**, one codebase for iOS, Android, and web (`mobile/`) |
 | UI | **NativeWind v4** (Tailwind 3) + **React Native Reusables** (shadcn-style, components in `mobile/components/ui/`) |
@@ -72,15 +72,8 @@ matfinder/
 ### M0: Housekeeping
 - [ ] `git rm server/yarn.lock mobile/yarn.lock`; `git rm -r --cached mobile/.yarn` and add `.yarn/` to `mobile/.gitignore`.
 - [ ] `cd server && rm -rf node_modules && npm install`; `cd mobile && rm -rf node_modules && npm install`. This regenerates `package-lock.json` (the committed npm lockfiles are stale). Remove the `packageManager` field from `server/package.json`.
-- [ ] Local PostgreSQL, installed natively (**no Docker**, per the user's rule for Strapi apps):
-  ```bash
-  brew install postgresql@17
-  export PATH="$(brew --prefix postgresql@17)/bin:$PATH"   # postgresql@17 is keg-only; add this to your shell profile
-  brew services start postgresql@17
-  psql postgres -c "CREATE ROLE strapi LOGIN PASSWORD 'strapi' CREATEDB;"
-  createdb -O strapi matfinder
-  ```
-- [ ] `cd server && npm install pg`, and set `DATABASE_CLIENT=postgres` + `DATABASE_URL` in `server/.env` (the existing `config/database.ts` already reads these). Delete `server/.tmp/`.
+- [ ] Local database: **SQLite** (Strapi's default; no local Postgres install and no Docker, per the user's rules for Strapi apps). Set `DATABASE_CLIENT=sqlite` and `DATABASE_FILENAME=.tmp/data.db` in `server/.env` (the existing `config/database.ts` reads these). An empty `DATABASE_FILENAME` resolves to a directory and fails with `SQLITE_CANTOPEN`.
+- [ ] `cd server && npm install pg`: production runs on Strapi Cloud's managed Postgres, so the driver must be a dependency even though local dev uses SQLite.
 - [ ] Mapbox plugin from npm (needed before Strapi can boot: the seeded `config/plugins.ts` points at `../plugins/strapi-plugin-map-box`, which doesn't exist in this repo): `npm install strapi-plugin-map-box@0.0.4`. In `config/plugins.ts`, **replace** the `resolve: '../plugins/strapi-plugin-map-box'` entry with the README form:
   ```ts
   'map-box': { enabled: true, config: { public: {
@@ -88,7 +81,7 @@ matfinder/
   ```
   ⚠️ **Verify the plugin key.** The plugin's code calls `strapi.plugin('map-box')`, and its README uses the `'map-box'` key, but the npm package's `strapi.name` is `strapi-plugin-map-box`. Boot and confirm the location field renders in the admin **and** `/map-box/get-settings` responds. If the plugin registers under the other name, **stop and ask the user** (options: fix and publish the plugin, or `resolve: './node_modules/strapi-plugin-map-box'`).
 - [ ] Keep the plugin README's CSP directives in `config/middlewares.ts` (`api.mapbox.com`, `events.mapbox.com`, `*.mapbox.com`, `blob:`).
-- **Done when:** `npm run develop` in `server/` boots on the local Postgres with the Mapbox location field working in the admin; `git status` shows no lockfile noise.
+- **Done when:** `npm run develop` in `server/` boots on SQLite (`server/.tmp/data.db`) with the Mapbox location field working in the admin; `git status` shows no lockfile noise.
 
 ### M1: Strapi upgrade + Strapi Cloud linked
 - [ ] Upgrade: `cd server && npx @strapi/upgrade minor` (repeat until `npm ls @strapi/strapi` shows the latest 5.x, ≥ **5.49**). Run the codemods it proposes, then `npm run build`.
@@ -115,11 +108,11 @@ matfinder/
   ]
   for (const sql of ddl) { try { await strapi.db.connection.raw(sql) } catch (e) { strapi.log.error(`[matfinder] index failed: ${sql}`, e) } }
   ```
-  (Draft-and-publish stores a draft row and a published row per document with the same slug, so only the **draft** rows are indexed; there is exactly one per document. Confirm table and column names in Postgres after the first boot.)
-- **Done when:** the admin shows all types and components; creating a school through the Document Service without a slug gets one; a bad schedule row is rejected with a `ValidationError`; `\d schools` in psql shows the partial unique index.
+  (Draft-and-publish stores a draft row and a published row per document with the same slug, so only the **draft** rows are indexed; there is exactly one per document. Confirm table and column names in the database after the first boot.)
+- **Done when:** the admin shows all types and components; creating a school through the Document Service without a slug gets one; a bad schedule row is rejected with a `ValidationError`; `sqlite3 server/.tmp/data.db '.indexes schools'` lists the partial unique index.
 
 ### M3: Auth (Better Auth; beta, confirmed by the user)
-Follows the official Strapi tutorial (linked above). Budget time for debugging: this is a beta auth plugin on an alpha permissions plugin.
+Follows the official Strapi tutorial (linked above). Budget time for debugging: this is a beta auth plugin on an alpha permissions plugin. ⚠️ Local dev runs on SQLite (user rule), and this stack has a reported early-DB-open `SqliteError` at boot on SQLite; if Strapi won't start after enabling Better Auth, **stop and ask the user** rather than switching databases.
 - [ ] `cd server && npm install better-auth@^1.7 @better-auth/expo@^1.7 @strapi-community/plugin-better-auth @strapi-community/plugin-api-permissions @strapi-community/plugin-better-auth-dashboard @better-auth/infra zod@^4.1.12` (**the zod 4 pin is required** by the dashboard).
 - [ ] **`npm uninstall @strapi/plugin-users-permissions`.** This is mandatory: the plugin throws at boot if the package is present, and disabling it in config isn't enough.
 - [ ] `config/plugins.ts`: add `'better-auth': { enabled: true }`, `'api-permissions': { enabled: true }`, `'better-auth-dashboard': { enabled: true }` (alongside `'map-box'`).
@@ -510,8 +503,9 @@ Modules: `lib/api/client.ts` (qs fetch wrapper; base URL native `EXPO_PUBLIC_STR
 |---|---|---|
 | `HOST`, `PORT` | `0.0.0.0`, `1337` | If 1337 is taken locally, change `PORT` and the app's URLs together |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects |
-| `DATABASE_CLIENT` | `postgres` | |
-| `DATABASE_URL` | `postgres://strapi:strapi@localhost:5432/matfinder` | Strapi Cloud injects |
+| `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | |
+| `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty |
+| `DATABASE_URL` | (production only) | Strapi Cloud injects |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
 | `BETTER_AUTH_URL` | `http://localhost:1337` · `https://<project>.strapiapp.com` | bare origin |
 | `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + `trustedOrigins` |
@@ -554,6 +548,6 @@ Run against **Vercel + Strapi Cloud** (and dev builds for native):
 
 ## Open questions / parked items
 - ⚠️ **Better Auth is beta / api-permissions is alpha.** Acceptable for the proof of concept; re-evaluate before any public launch (fallback: Strapi Users & Permissions).
-- ⚠️ **Verify during build:** the `map-box` plugin key when installed from npm (M0); `createHandler` signature on the installed Strapi (M5); Hermes `Intl` `timeZone` support (M6); a relative web `baseURL` for the Better Auth client (M7); Strapi Cloud plan, region, and Node 24 availability (M1).
+- ⚠️ **Verify during build:** Better Auth booting on local SQLite (M3); the `map-box` plugin key when installed from npm (M0); `createHandler` signature on the installed Strapi (M5); Hermes `Intl` `timeZone` support (M6); a relative web `baseURL` for the Better Auth client (M7); Strapi Cloud plan, region, and Node 24 availability (M1).
 - **Before App Store submission:** in-app account deletion (Apple guideline 5.1.1(v)), privacy policy, Sign in with Apple if any social login is added.
 - **v2 candidates:** school owners claiming listings; program-type filter (beginner / kids / women's / competition); saved favorites; password reset and email verification (needs an email provider, e.g., Resend); social sign-in; one-off schedule exceptions (holidays, seminars); more cities; Sentry monitoring; per-session "visitors welcome" overrides.

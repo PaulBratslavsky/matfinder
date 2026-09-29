@@ -1,10 +1,10 @@
 {
   "repo": "PaulBratslavsky/matfinder",
   "specPath": "docs/plan/06-build-spec.md",
-  "specRef": "0a488c125ef61fa485f1c71c2d75565debe19de3",
+  "specRef": "68803f6bf44a5d0415cdefc498706b9e2ade58b9",
   "milestone": {
     "title": "MatFinder POC",
-    "description": "Build of docs/plan/06-build-spec.md @ 0a488c1 (M0–M9)"
+    "description": "Build of docs/plan/06-build-spec.md @ 68803f6 (M0–M9)"
   },
   "project": {
     "owner": "PaulBratslavsky",

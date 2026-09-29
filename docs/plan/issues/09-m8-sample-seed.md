@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M8** (step 9 of 10) · Blocked by: {{#m5}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m8-sample-seed--media)
+> **Part of {{#epic}}** · **M8** (step 9 of 10) · Blocked by: {{#m5}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m8-sample-seed--media)
 
 ## Goal
 A fresh development database boots with a clearly fictional Las Vegas dataset (1 city, 3 affiliations, 6 instructors, 8 published schools) that covers every filter and edge case in the app, and a second boot doesn't duplicate it.
@@ -58,7 +58,7 @@ Nothing in the spec is tagged to M8. If anything here doesn't work as written, t
 - [ ] A fresh database with `SEED_SAMPLE_DATA=true` boots with 8 published sample schools
 - [ ] A second boot creates no duplicates
 
-One way to get a fresh local database: `dropdb matfinder && createdb -O strapi matfinder` (**this wipes local data**), then `npm run develop` in `server/` and check that `/api/schools/directory?city=las-vegas` lists 8 schools. *(added: not in spec)*
+One way to get a fresh local database: stop Strapi, then `rm server/.tmp/data.db` (**this wipes local data**), then `npm run develop` in `server/` and check that `/api/schools/directory?city=las-vegas` lists 8 schools. *(added: not in spec)*
 
 ## Acceptance criteria this step unlocks
 None directly. It supplies the data the {{#m9}} integration and Playwright suites run against (AC11).

@@ -1,4 +1,4 @@
-> Build tracker for **MatFinder**, generated from [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md). Plan: [docs/plan/](https://github.com/PaulBratslavsky/matfinder/tree/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan).
+> Build tracker for **MatFinder**, generated from [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md). Plan: [docs/plan/](https://github.com/PaulBratslavsky/matfinder/tree/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan).
 
 ## What we're building
 **MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools that helps anyone, whether a local or a traveler, find the right place to train and know what to expect before they walk in.**
@@ -11,7 +11,7 @@ Anyone can open the map, search, and filter Las Vegas schools by *training today
 | Area | Choice |
 |---|---|
 | Backend / CMS | **Strapi v5, upgraded from 5.33.3 to the latest 5.x** (5.55.1 on 2026-09-27; **floor 5.49**). Node **24 LTS** |
-| Database | **PostgreSQL**: native Homebrew install locally (**no Docker**), Strapi Cloud managed in production |
+| Database | **SQLite locally** (Strapi's default; no local Postgres, no Docker), **PostgreSQL** managed by Strapi Cloud in production |
 | Backend hosting | **Strapi Cloud** (root directory `server`) |
 | App | **Expo SDK 57 + Expo Router + React Native Web**, one codebase for iOS, Android, and web (`mobile/`) |
 | UI | **NativeWind v4** (Tailwind 3) + **React Native Reusables** (shadcn-style, components in `mobile/components/ui/`) |

@@ -195,7 +195,7 @@ Not used.
 ## Uniqueness (identity keys)
 `slug` is the identity key for School, Instructor, Affiliation, and City. Schema `unique: true` is **validation-layer only**. Document Service writes (seed, MCP tools) bypass it, so:
 
-1. **Real DB indexes, created in `bootstrap()` (Postgres).** Each DDL statement runs in its own try/catch and logs `error` on failure:
+1. **Real DB indexes, created in `bootstrap()`** (works on both SQLite locally and Postgres in production; both support partial unique indexes). Each DDL statement runs in its own try/catch and logs `error` on failure:
    ```sql
    -- draft-and-publish types: exactly one draft row per document, so index the draft rows
    CREATE UNIQUE INDEX IF NOT EXISTS schools_slug_draft_uq      ON schools (slug)      WHERE published_at IS NULL;
@@ -356,8 +356,9 @@ The Expo app is upgraded to **SDK 57**. Template leftovers (`app/modal.tsx`, `ap
 |---|---|---|
 | `HOST` / `PORT` | `0.0.0.0` / `1337` | |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects these in production |
-| `DATABASE_CLIENT` | `postgres` | |
-| `DATABASE_URL` | `postgres://strapi:strapi@localhost:5432/matfinder` | Strapi Cloud injects its own |
+| `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | |
+| `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty |
+| `DATABASE_URL` | (production only) | Strapi Cloud injects |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
 | `BETTER_AUTH_URL` | `http://localhost:1337` / `https://<project>.strapiapp.com` | bare origin, no path |
 | `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + Better Auth `trustedOrigins` |

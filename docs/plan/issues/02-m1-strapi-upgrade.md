@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M1** (step 2 of 10) · Blocked by: {{#m0}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m1-strapi-upgrade--strapi-cloud-linked)
+> **Part of {{#epic}}** · **M1** (step 2 of 10) · Blocked by: {{#m0}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m1-strapi-upgrade--strapi-cloud-linked)
 
 ## Goal
 Strapi runs on the latest 5.x (at least **5.49**), the Mapbox location field (moved to npm in {{#m0}}) still works after the upgrade, and `server/` deploys to Strapi Cloud.
@@ -18,8 +18,9 @@ Strapi runs on the latest 5.x (at least **5.49**), the Mapbox location field (mo
 |---|---|---|---|
 | `HOST`, `PORT` | `0.0.0.0`, `1337` | If 1337 is taken locally, change `PORT` and the app's URLs together | now |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects | now |
-| `DATABASE_CLIENT` | `postgres` | | now |
-| `DATABASE_URL` | `postgres://strapi:strapi@localhost:5432/matfinder` | Strapi Cloud injects | now |
+| `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | | now |
+| `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty | now |
+| `DATABASE_URL` | (production only) | Strapi Cloud injects | now |
 | `MAPBOX_ACCESS_TOKEN` | `pk.…` | admin map field | now |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | | {{#m3}} |
 | `BETTER_AUTH_URL` | `http://localhost:1337` · `https://<project>.strapiapp.com` | bare origin | {{#m3}} |

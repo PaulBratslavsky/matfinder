@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M3** (step 4 of 10) · Blocked by: {{#m2}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m3-auth-better-auth-beta-confirmed-by-the-user)
+> **Part of {{#epic}}** · **M3** (step 4 of 10) · Blocked by: {{#m2}} · Spec: [06-build-spec.md @ 68803f6](https://github.com/PaulBratslavsky/matfinder/blob/68803f6bf44a5d0415cdefc498706b9e2ade58b9/docs/plan/06-build-spec.md#m3-auth-better-auth-beta-confirmed-by-the-user)
 
 ## Goal
 Strapi authenticates end users with **Better Auth** (email + password, 30-day sliding session) instead of Users & Permissions, and the role permissions that make the directory public and the school page account-only are seeded on boot.
@@ -87,6 +87,7 @@ Strapi authenticates end users with **Better Auth** (email + password, 30-day sl
 - **Don't switch** to the `bearer()` fallback without asking the user; the auth stack is a user decision.
 
 ## Verify during this step
+- ⚠️ **Better Auth on SQLite.** Local dev uses SQLite (user rule). This plugin stack has a reported early-DB-open `SqliteError` at boot on SQLite. If Strapi won't start after enabling Better Auth, **stop and ask the user**; don't switch databases on your own.
 - The api-permissions role records' `type` / `name` values after first boot, so the seeding matches Public and Authenticated.
 - Whether Settings → API Permissions lists the `school.directory` / `school.bySlug` grants before {{#m4}} exists. See the forward-reference note above. *(added: not in spec)*
 

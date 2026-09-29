@@ -12,7 +12,7 @@ For each decision: what was chosen, what else was considered, and why it fits th
 ## Defaults applied (confirmed or overridden)
 
 - **Backend / CMS:** Strapi v5 ✅ (upgrade the existing app)
-- **Database:** PostgreSQL ✅ (replaces the current SQLite)
+- **Database:** SQLite locally (Strapi's default) and PostgreSQL in production on Strapi Cloud ✅
 - **Backend hosting:** Strapi Cloud ✅
 - **Frontend:** **Expo + React Native + React Native Web**, overriding the skill's first-class list. One codebase for iOS, Android, and web (user's choice)
 - **Auth:** ⚠️ **Better Auth plugin** (`@strapi-community/plugin-better-auth`) instead of the default Users & Permissions. **Explicitly chosen by the user**, beta/not-for-production status acknowledged
@@ -30,9 +30,9 @@ For each decision: what was chosen, what else was considered, and why it fits th
 - **Why:** R12–R14 (curator in the admin), R13 (MCP), R10 (Better Auth), and reuse of the existing app and map field.
 
 ## Database
-- **Choice:** **PostgreSQL**: installed natively locally (Homebrew `postgresql@17`; **no Docker**, per the user's rule for Strapi apps), Strapi Cloud's managed Postgres in production.
-- **Considered:** keeping SQLite locally (current setup).
-- **Why:** dev/prod parity, and Better Auth on SQLite has known boot-time issues (early DB-open `SqliteError`). Postgres is the documented, safer path for this beta plugin.
+- **Choice:** **SQLite locally** (Strapi's default, `server/.tmp/data.db`) and **Strapi Cloud's managed PostgreSQL in production**. User rules for Strapi apps: no local Postgres install, no Docker.
+- **Considered:** local Postgres for dev/prod parity (dropped: user rule).
+- **Why:** zero local setup; production's database is fully managed. Any raw SQL (the unique indexes) must run on both engines; partial unique indexes do. ⚠️ Risk: Better Auth on SQLite has a reported early-DB-open `SqliteError` at boot. Check it in M3; if it bites, stop and ask the user.
 
 ## Backend hosting
 - **Choice:** **Strapi Cloud**, project root directory = **`server`**, deploying from the repo's main branch.
