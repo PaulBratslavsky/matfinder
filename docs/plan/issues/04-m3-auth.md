@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M3** (step 4 of 10) · Blocked by: {{#m2}} · Spec: [06-build-spec.md @ 945a14a](https://github.com/PaulBratslavsky/matfinder/blob/945a14abb38166ed4b4a21dc000126d26701537b/docs/plan/06-build-spec.md#m3-auth-better-auth-beta-confirmed-by-the-user)
+> **Part of {{#epic}}** · **M3** (step 4 of 10) · Blocked by: {{#m2}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m3-auth-better-auth-beta-confirmed-by-the-user)
 
 ## Goal
 Strapi authenticates end users with **Better Auth** (email + password, 30-day sliding session) instead of Users & Permissions, and the role permissions that make the directory public and the school page account-only are seeded on boot.

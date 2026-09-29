@@ -25,7 +25,7 @@ Anyone can open the map, search, and filter Las Vegas schools by *training today
 | Area | Choice |
 |---|---|
 | Backend / CMS | **Strapi v5, upgraded from 5.33.3 to the latest 5.x** (5.55.1 on 2026-09-27; **floor 5.49**). Node **24 LTS** |
-| Database | **PostgreSQL**: Docker locally, Strapi Cloud managed in production |
+| Database | **PostgreSQL**: native Homebrew install locally (**no Docker**), Strapi Cloud managed in production |
 | Backend hosting | **Strapi Cloud** (root directory `server`) |
 | App | **Expo SDK 57 + Expo Router + React Native Web**, one codebase for iOS, Android, and web (`mobile/`) |
 | UI | **NativeWind v4** (Tailwind 3) + **React Native Reusables** (shadcn-style, components in `mobile/components/ui/`) |
@@ -40,7 +40,6 @@ Anyone can open the map, search, and filter Las Vegas schools by *training today
 ## Repo layout (target)
 ```
 matfinder/
-├── docker-compose.yml            # NEW: local Postgres
 ├── docs/plan/                    # this plan (01–06)
 ├── server/                       # Strapi v5 (Strapi Cloud root)
 │   ├── config/{server,plugins,middlewares,database,admin,api}.ts
@@ -73,15 +72,13 @@ matfinder/
 ### M0: Housekeeping
 - [ ] `git rm server/yarn.lock mobile/yarn.lock`; `git rm -r --cached mobile/.yarn` and add `.yarn/` to `mobile/.gitignore`.
 - [ ] `cd server && rm -rf node_modules && npm install`; `cd mobile && rm -rf node_modules && npm install`. This regenerates `package-lock.json` (the committed npm lockfiles are stale). Remove the `packageManager` field from `server/package.json`.
-- [ ] Add `docker-compose.yml` at the repo root:
-  ```yaml
-  services:
-    db:
-      image: postgres:17
-      environment: { POSTGRES_USER: strapi, POSTGRES_PASSWORD: strapi, POSTGRES_DB: matfinder }
-      ports: ["5432:5432"]
-      volumes: [pgdata:/var/lib/postgresql/data]
-  volumes: { pgdata: {} }
+- [ ] Local PostgreSQL, installed natively (**no Docker**, per the user's rule for Strapi apps):
+  ```bash
+  brew install postgresql@17
+  export PATH="$(brew --prefix postgresql@17)/bin:$PATH"   # postgresql@17 is keg-only; add this to your shell profile
+  brew services start postgresql@17
+  psql postgres -c "CREATE ROLE strapi LOGIN PASSWORD 'strapi' CREATEDB;"
+  createdb -O strapi matfinder
   ```
 - [ ] `cd server && npm install pg`, and set `DATABASE_CLIENT=postgres` + `DATABASE_URL` in `server/.env` (the existing `config/database.ts` already reads these). Delete `server/.tmp/`.
 - [ ] Mapbox plugin from npm (needed before Strapi can boot: the seeded `config/plugins.ts` points at `../plugins/strapi-plugin-map-box`, which doesn't exist in this repo): `npm install strapi-plugin-map-box@0.0.4`. In `config/plugins.ts`, **replace** the `resolve: '../plugins/strapi-plugin-map-box'` entry with the README form:
@@ -91,7 +88,7 @@ matfinder/
   ```
   ⚠️ **Verify the plugin key.** The plugin's code calls `strapi.plugin('map-box')`, and its README uses the `'map-box'` key, but the npm package's `strapi.name` is `strapi-plugin-map-box`. Boot and confirm the location field renders in the admin **and** `/map-box/get-settings` responds. If the plugin registers under the other name, **stop and ask the user** (options: fix and publish the plugin, or `resolve: './node_modules/strapi-plugin-map-box'`).
 - [ ] Keep the plugin README's CSP directives in `config/middlewares.ts` (`api.mapbox.com`, `events.mapbox.com`, `*.mapbox.com`, `blob:`).
-- **Done when:** `docker compose up -d` and `npm run develop` in `server/` boot on Postgres with the Mapbox location field working in the admin; `git status` shows no lockfile noise.
+- **Done when:** `npm run develop` in `server/` boots on the local Postgres with the Mapbox location field working in the admin; `git status` shows no lockfile noise.
 
 ### M1: Strapi upgrade + Strapi Cloud linked
 - [ ] Upgrade: `cd server && npx @strapi/upgrade minor` (repeat until `npm ls @strapi/strapi` shows the latest 5.x, ≥ **5.49**). Run the codemods it proposes, then `npm run build`.

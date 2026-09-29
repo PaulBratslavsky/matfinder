@@ -1,4 +1,4 @@
-> **Part of {{#epic}}** · **M1** (step 2 of 10) · Blocked by: {{#m0}} · Spec: [06-build-spec.md @ 945a14a](https://github.com/PaulBratslavsky/matfinder/blob/945a14abb38166ed4b4a21dc000126d26701537b/docs/plan/06-build-spec.md#m1-strapi-upgrade--strapi-cloud-linked)
+> **Part of {{#epic}}** · **M1** (step 2 of 10) · Blocked by: {{#m0}} · Spec: [06-build-spec.md @ 0a488c1](https://github.com/PaulBratslavsky/matfinder/blob/0a488c125ef61fa485f1c71c2d75565debe19de3/docs/plan/06-build-spec.md#m1-strapi-upgrade--strapi-cloud-linked)
 
 ## Goal
 Strapi runs on the latest 5.x (at least **5.49**), the Mapbox location field (moved to npm in {{#m0}}) still works after the upgrade, and `server/` deploys to Strapi Cloud.
