@@ -58,13 +58,13 @@ This is the spec's two env tables with the example column cut to production valu
 
 | Variable | Example | Notes |
 |---|---|---|
-| `HOST`, `PORT` | `0.0.0.0`, `1337` | |
+| `HOST`, `PORT` | `0.0.0.0`, `1339` | |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects |
 | `DATABASE_CLIENT` | `postgres` | |
 | `DATABASE_URL` | (managed) | Strapi Cloud injects |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
 | `BETTER_AUTH_URL` | `https://<project>.strapiapp.com` | bare origin |
-| `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + `trustedOrigins`; add the Vercel production and preview domains |
+| `WEB_ORIGINS` | `http://localhost:8083,https://matfinder.vercel.app` | CORS + `trustedOrigins`; add the Vercel production and preview domains |
 | `MAPBOX_ACCESS_TOKEN` | `pk.…` | admin map field |
 | `MAPBOX_GEOCODING_TOKEN` | `pk.…`/`sk.…` | server-only geocoding (no URL restriction); falls back to the above |
 | `MCP_ENABLED` | `true` | |

@@ -51,13 +51,13 @@ Per the *Time rules*, "today highlighted" and "On now" use the city's `timezone`
 - Email + password; no verification or reset in the proof of concept; 30-day sliding session (server config from {{#m3}}).
 - **Web:** browser cookies; production requests are **same-origin** via the Vercel `/api` rewrite (avoids third-party-cookie blocking between `*.vercel.app` and `*.strapiapp.com`). **Fallback (ask the user before switching):** Better Auth `bearer()` plugin + `Authorization` header.
 - **Native:** `expoClient` + SecureStore; send `Cookie: await authClient.getCookie()`.
-- On the server ({{#m3}}), `trustedOrigins` = `WEB_ORIGINS` + `matfinder://` (+ `exp://` outside production), and CORS allows `WEB_ORIGINS` with `credentials: true`. The web dev origin (`http://localhost:8081` by default) must be in `WEB_ORIGINS` for web sign-in to work locally. *(added: not in spec: the last sentence)*
+- On the server ({{#m3}}), `trustedOrigins` = `WEB_ORIGINS` + `matfinder://` (+ `exp://` outside production), and CORS allows `WEB_ORIGINS` with `credentials: true`. The web dev origin (`http://localhost:8083` by default) must be in `WEB_ORIGINS` for web sign-in to work locally. *(added: not in spec: the last sentence)*
 
 ### Env vars this step reads (`mobile/.env`)
 | Variable | Example | Notes |
 |---|---|---|
-| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1337` (iOS sim) · `http://10.0.2.2:1337` (Android emu) · `http://<LAN-IP>:1337` (device) · `https://<project>.strapiapp.com` | native API + auth |
-| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1337` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
+| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1339` (iOS sim) · `http://10.0.2.2:1339` (Android emu) · `http://<LAN-IP>:1339` (device) · `https://<project>.strapiapp.com` | native API + auth |
+| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1339` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
 
 ## Watch out for
 - **Native sends the cookie explicitly:** `headers.Cookie = await authClient.getCookie()` with `credentials: 'omit'`. **Web** uses `credentials: 'include'`.

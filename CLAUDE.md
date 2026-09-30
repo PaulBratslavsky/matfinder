@@ -28,5 +28,6 @@ Planning is done; **no build work has started**. The next issue is **#3 · M0 Ho
 - **Secrets stay out of chat, issues and commits.** The user adds tokens (e.g. `MAPBOX_ACCESS_TOKEN`) to `server/.env` themselves.
 
 ## Local quirks
-- Port **1337** is usually taken by another Strapi project on this machine. Use `PORT=1339` in `server/.env` and point the app's URLs at the same port.
+- **Ports:** MatFinder uses Strapi **1339** and Expo **8083** (the defaults in `.env.example`, `config/server.ts` and the `mobile` scripts). Other projects on this machine use these, so don't take them: 1337/1338 (other Strapi projects), 1340/8081 (MatBuddy), 1341/8082 (MatBuddy tests), 3000. GitHub issues written before 2026-09-30 still say 1337/8081; read those as 1339/8083.
+- **Open the admin at `http://matfinder.localhost:1339/admin`.** Browsers share cookies across ports on one hostname, and every Strapi admin uses the same cookie names (`jwtToken`, `strapi_admin_refresh`). On `localhost` a login to another project's admin overwrites MatFinder's, which causes a login loop. `*.localhost` resolves to this machine with no setup.
 - Better Auth (M3) has a reported boot error on SQLite. If it appears, stop and ask the user; don't switch databases.

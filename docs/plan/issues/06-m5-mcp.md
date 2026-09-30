@@ -43,7 +43,7 @@ The curator manages listings by talking to Claude through Strapi's **built-in MC
   **Forward reference from {{#m4}}:** the school tools call the service methods {{#m4}} declared (`upsertDraft`, `setScheduleDraft`, `listPendingDrafts`). {{#m4}} only needed them to exist; **this issue's Done-when is their first real check**, so finish or fix them here. Once `src/lib/geocode.ts` exists, wire it into `upsertDraft` for an address without coordinates. `upsert_instructor` and `upsert_affiliation` need the same kind of draft-upsert methods on the instructor and affiliation services. *(added: not in spec)*
 - [ ] `src/lib/geocode.ts`: Mapbox Geocoding (`MAPBOX_GEOCODING_TOKEN ?? MAPBOX_ACCESS_TOKEN`), `proximity` = city center, `country=us`, `types=address,poi`, limit 1 → `{ longitude, latitude, address, zoom: 15, pitch: 0, bearing: 0 }` (the `map-box` field shape). No result → tool error `GEOCODE_FAILED` with the address tried.
 - [ ] Create the admin token: Strapi admin → **Settings → Admin Tokens** (not API Tokens; `/mcp` rejects API tokens) → name `matfinder-curator`, unlimited duration → tick **only** the *MatFinder MCP tools* actions. Save it in a password manager; **never commit it**.
-- [ ] Connect: `claude mcp add matfinder --transport http http://localhost:1337/mcp -H "Authorization: Bearer <token>"`.
+- [ ] Connect: `claude mcp add matfinder --transport http http://localhost:1339/mcp -H "Authorization: Bearer <token>"`.
 
 ## Reference (copied from the spec)
 

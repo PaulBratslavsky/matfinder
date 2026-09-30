@@ -238,7 +238,7 @@ Not used.
 ### Connecting clients
 - **Claude Code:** `claude mcp add matfinder --transport http https://<strapi-host>/mcp -H "Authorization: Bearer <admin token>"`
 - **Claude Desktop:** `claude_desktop_config.json` → `npx -y mcp-remote https://<strapi-host>/mcp --header "Authorization: Bearer <admin token>"`
-- Local: `http://localhost:1337/mcp`. The token is never committed and never shipped in the app.
+- Local: `http://localhost:1339/mcp`. The token is never committed and never shipped in the app.
 
 ### Known limitations (accepted)
 No media upload; stateless requests; tool results are size-guarded.
@@ -254,12 +254,12 @@ No media upload; stateless requests; tool results are size-guarded.
   import { expo } from '@better-auth/expo'
   import { strapiAdapter } from '@strapi-community/plugin-better-auth'
 
-  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8081').split(',')
+  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8083').split(',')
 
   export const auth = betterAuth({
     database: strapiAdapter(),
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1337',
+    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1339',
     trustedOrigins: [...webOrigins, 'matfinder://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://'])],
     emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 8 },
     session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 }, // 30-day sliding session
@@ -278,7 +278,7 @@ No media upload; stateless requests; tool results are size-guarded.
   - **Password reset / email verification:** out of scope for the proof of concept.
 - **How the app sends the session:**
   - **Native** (`lib/auth-client.native.ts`): `createAuthClient({ baseURL: EXPO_PUBLIC_STRAPI_URL + '/api/auth', plugins: [expoClient({ scheme: 'matfinder', storagePrefix: 'matfinder', storage: SecureStore })] })`. API requests add `Cookie: await authClient.getCookie()` with `credentials: 'omit'`.
-  - **Web** (`lib/auth-client.web.ts`): `createAuthClient({ baseURL: <web API base> + '/api/auth' })`. Browser cookies; in production the requests are **same-origin** through the Vercel rewrite. In local development they go cross-origin to `localhost:1337` (same site, so cookies still work) with `credentials: 'include'`.
+  - **Web** (`lib/auth-client.web.ts`): `createAuthClient({ baseURL: <web API base> + '/api/auth' })`. Browser cookies; in production the requests are **same-origin** through the Vercel rewrite. In local development they go cross-origin to `localhost:1339` (same site, so cookies still work) with `credentials: 'include'`.
 - **CORS (`server/config/middlewares.ts`):** `strapi::cors` with `origin: WEB_ORIGINS`, `credentials: true`. Keep the map-box CSP directives from the plugin README.
 
 ## Permissions & roles
@@ -354,14 +354,14 @@ The Expo app is upgraded to **SDK 57**. Template leftovers (`app/modal.tsx`, `ap
 ### Strapi backend (`server/.env`, Strapi Cloud project settings)
 | Variable | Example | Notes |
 |---|---|---|
-| `HOST` / `PORT` | `0.0.0.0` / `1337` | |
+| `HOST` / `PORT` | `0.0.0.0` / `1339` | |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects these in production |
 | `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | |
 | `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty |
 | `DATABASE_URL` | (production only) | Strapi Cloud injects |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
-| `BETTER_AUTH_URL` | `http://localhost:1337` / `https://<project>.strapiapp.com` | bare origin, no path |
-| `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + Better Auth `trustedOrigins` |
+| `BETTER_AUTH_URL` | `http://localhost:1339` / `https://<project>.strapiapp.com` | bare origin, no path |
+| `WEB_ORIGINS` | `http://localhost:8083,https://matfinder.vercel.app` | CORS + Better Auth `trustedOrigins` |
 | `MAPBOX_ACCESS_TOKEN` | `pk.…` | admin map field (browser-visible in the admin) |
 | `MAPBOX_GEOCODING_TOKEN` | `pk.…` or `sk.…` | **server-only** geocoding for `upsert_school`; falls back to `MAPBOX_ACCESS_TOKEN`. Must not be URL-restricted |
 | `MCP_ENABLED` | `true` | |
@@ -370,8 +370,8 @@ The Expo app is upgraded to **SDK 57**. Template leftovers (`app/modal.tsx`, `ap
 ### Expo app (`mobile/.env`, EAS/Vercel env)
 | Variable | Example | Notes |
 |---|---|---|
-| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1337` (iOS sim) · `http://10.0.2.2:1337` (Android emu) · `http://<LAN-IP>:1337` (device) · `https://<project>.strapiapp.com` (prod) | native API + auth base |
-| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1337` (dev) · *(empty)* (prod → relative `/api` via Vercel rewrite) | web API + auth base |
+| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1339` (iOS sim) · `http://10.0.2.2:1339` (Android emu) · `http://<LAN-IP>:1339` (device) · `https://<project>.strapiapp.com` (prod) | native API + auth base |
+| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1339` (dev) · *(empty)* (prod → relative `/api` via Vercel rewrite) | web API + auth base |
 | `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` | `pk.…` | public, **URL-restricted** to the Vercel domains for web |
 | `EXPO_PUBLIC_DEFAULT_CITY` | `las-vegas` | |
 | `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` | `sk.…` (`DOWNLOADS:READ` scope) | **build-time secret** for native builds (EAS secret). Never prefixed `EXPO_PUBLIC_` |

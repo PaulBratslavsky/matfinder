@@ -88,7 +88,7 @@ If a check fails, the deviation protocol applies: stop and ask.
 
 ## Done when
 **Forward reference, interim data:** the trimming checks need at least one published school in `las-vegas`, but the sample seed only arrives in {{#m8}}. Until then, create a City (`las-vegas`, `America/Los_Angeles`) and a School by hand in the admin and publish it. *(added: not in spec)*
-- [ ] `curl /api/schools/directory?city=las-vegas` → 200 with trimmed fields, e.g. `curl -i 'http://localhost:1337/api/schools/directory?city=las-vegas'`
+- [ ] `curl /api/schools/directory?city=las-vegas` → 200 with trimmed fields, e.g. `curl -i 'http://localhost:1339/api/schools/directory?city=las-vegas'`
 - [ ] `curl /api/schools/slug/<slug>` → 401/403 without a cookie
 - [ ] `curl /api/schools/slug/<slug>` → 200 with a cookie (e.g. `-b /tmp/mf-cookies.txt` from the {{#m3}} sign-up example) *(added: not in spec: the cookie-jar path)*
 - [ ] `curl /api/schools` → 403

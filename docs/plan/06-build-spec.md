@@ -122,12 +122,12 @@ Follows the official Strapi tutorial (linked above). Budget time for debugging: 
   import { expo } from '@better-auth/expo'
   import { strapiAdapter } from '@strapi-community/plugin-better-auth'
 
-  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8081').split(',').map((s) => s.trim())
+  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8083').split(',').map((s) => s.trim())
 
   export const auth = betterAuth({
     database: strapiAdapter(),
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1337',
+    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1339',
     trustedOrigins: [...webOrigins, 'matfinder://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://'])],
     emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 8 },
     session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 }, // 30-day sliding session
@@ -137,7 +137,7 @@ Follows the official Strapi tutorial (linked above). Budget time for debugging: 
   export default auth
   ```
 - [ ] `npx @better-auth/cli generate --config src/lib/auth.ts --yes` to create the `user` / `session` / `account` / `verification` content types. Re-run it whenever Better Auth plugins change.
-- [ ] CORS in `config/middlewares.ts`: replace `'strapi::cors'` with `{ name: 'strapi::cors', config: { origin: env.array('WEB_ORIGINS', ['http://localhost:8081']), credentials: true } }`.
+- [ ] CORS in `config/middlewares.ts`: replace `'strapi::cors'` with `{ name: 'strapi::cors', config: { origin: env.array('WEB_ORIGINS', ['http://localhost:8083']), credentials: true } }`.
 - [ ] **Seed role permissions** in `bootstrap()`, idempotently. Roles are `plugin::api-permissions.role` (seeded Public / Authenticated); rows are `plugin::api-permissions.permission { action, role }`:
   ```ts
   const GRANTS = {
@@ -203,7 +203,7 @@ Follows the official Strapi tutorial (linked above). Budget time for debugging: 
   - String inputs longer than 255 characters must target `text` fields (a Strapi `string` has a 255-character app-layer max). Enforce `.max(255)` in zod for `string` fields.
 - [ ] `src/lib/geocode.ts`: Mapbox Geocoding (`MAPBOX_GEOCODING_TOKEN ?? MAPBOX_ACCESS_TOKEN`), `proximity` = city center, `country=us`, `types=address,poi`, limit 1 → `{ longitude, latitude, address, zoom: 15, pitch: 0, bearing: 0 }` (the `map-box` field shape). No result → tool error `GEOCODE_FAILED` with the address tried.
 - [ ] Create the admin token: Strapi admin → **Settings → Admin Tokens** (not API Tokens; `/mcp` rejects API tokens) → name `matfinder-curator`, unlimited duration → tick **only** the *MatFinder MCP tools* actions. Save it in a password manager; **never commit it**.
-- [ ] Connect: `claude mcp add matfinder --transport http http://localhost:1337/mcp -H "Authorization: Bearer <token>"`.
+- [ ] Connect: `claude mcp add matfinder --transport http http://localhost:1339/mcp -H "Authorization: Bearer <token>"`.
 - **Done when:** in Claude Code, `tools/list` shows **exactly** the 8 MatFinder tools (no `list_school`/`update_school`/`publish_*` generic tools); "add <fictional school> at <real Vegas address> with this schedule…" creates a **draft** with a geocoded pin; `list_pending_drafts` shows it; it does **not** appear in `/api/schools/directory` until published in the admin.
 
 ### M6: Expo app (SDK 57, NativeWind, React Native Reusables, maps, data)
@@ -501,14 +501,14 @@ Modules: `lib/api/client.ts` (qs fetch wrapper; base URL native `EXPO_PUBLIC_STR
 ### Strapi (`server/.env`, Strapi Cloud)
 | Variable | Example | Notes |
 |---|---|---|
-| `HOST`, `PORT` | `0.0.0.0`, `1337` | If 1337 is taken locally, change `PORT` and the app's URLs together |
+| `HOST`, `PORT` | `0.0.0.0`, `1339` | Local ports are listed in CLAUDE.md |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects |
 | `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | |
 | `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty |
 | `DATABASE_URL` | (production only) | Strapi Cloud injects |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
-| `BETTER_AUTH_URL` | `http://localhost:1337` · `https://<project>.strapiapp.com` | bare origin |
-| `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + `trustedOrigins` |
+| `BETTER_AUTH_URL` | `http://localhost:1339` · `https://<project>.strapiapp.com` | bare origin |
+| `WEB_ORIGINS` | `http://localhost:8083,https://matfinder.vercel.app` | CORS + `trustedOrigins` |
 | `MAPBOX_ACCESS_TOKEN` | `pk.…` | admin map field |
 | `MAPBOX_GEOCODING_TOKEN` | `pk.…`/`sk.…` | server-only geocoding (no URL restriction); falls back to the above |
 | `MCP_ENABLED` | `true` | |
@@ -517,8 +517,8 @@ Modules: `lib/api/client.ts` (qs fetch wrapper; base URL native `EXPO_PUBLIC_STR
 ### Expo (`mobile/.env`, Vercel, EAS)
 | Variable | Example | Notes |
 |---|---|---|
-| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1337` (iOS sim) · `http://10.0.2.2:1337` (Android emu) · `http://<LAN-IP>:1337` (device) · `https://<project>.strapiapp.com` | native API + auth |
-| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1337` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
+| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1339` (iOS sim) · `http://10.0.2.2:1339` (Android emu) · `http://<LAN-IP>:1339` (device) · `https://<project>.strapiapp.com` | native API + auth |
+| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1339` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
 | `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` | `pk.…` | URL-restricted to the Vercel domains |
 | `EXPO_PUBLIC_DEFAULT_CITY` | `las-vegas` | |
 | `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` | `sk.…` (`DOWNLOADS:READ`) | **build-time secret**, never `EXPO_PUBLIC_` |

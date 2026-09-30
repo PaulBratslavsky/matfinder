@@ -27,7 +27,7 @@ The Mapbox plugin switch belongs here too: the seeded `config/plugins.ts` points
 
 | Variable | Example | Notes |
 |---|---|---|
-| `HOST`, `PORT` | `0.0.0.0`, `1337` | If 1337 is taken locally, change `PORT` and the app's URLs together |
+| `HOST`, `PORT` | `0.0.0.0`, `1339` | Local ports are listed in CLAUDE.md |
 | `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | |
 | `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty |
 | `DATABASE_URL` | (production only) | Strapi Cloud injects |
