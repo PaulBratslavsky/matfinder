@@ -8,7 +8,7 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
 ## Status (2026-09-30)
-M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API) and M5 (#8, MCP tools) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, the user's OK on M3's `jwt()` + `dash()` addition, and Strapi Cloud. Next: **#9 · M6 Expo app** (app track, stacks on M4/M5) and **#11 · M8 sample seed** (backend track, stacks on M5).
+M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools) and M8 (#11, sample seed) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, the user's OK on M3's `jwt()` + `dash()` addition, and Strapi Cloud. Next: the app track, **#9 · M6 Expo app** then **#10 · M7 auth UI** (stack them on M8 so the app has sample data), then **#12 · M9 tests + deploy**. `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
