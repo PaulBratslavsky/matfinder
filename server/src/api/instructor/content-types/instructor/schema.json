@@ -1,0 +1,16 @@
+{
+  "kind": "collectionType",
+  "collectionName": "instructors",
+  "info": { "singularName": "instructor", "pluralName": "instructors", "displayName": "Instructor" },
+  "options": { "draftAndPublish": true },
+  "attributes": {
+    "name": { "type": "string", "required": true, "maxLength": 120 },
+    "slug": { "type": "uid", "targetField": "name", "required": true },
+    "beltRank": { "type": "enumeration", "required": true,
+      "enum": ["white", "blue", "purple", "brown", "black", "red_black", "red_white", "red"] },
+    "degree": { "type": "integer", "min": 0, "max": 10 },
+    "photo": { "type": "media", "multiple": false, "allowedTypes": ["images"] },
+    "bio": { "type": "text", "maxLength": 1000 },
+    "schools": { "type": "relation", "relation": "manyToMany", "target": "api::school.school", "mappedBy": "headInstructors" }
+  }
+}

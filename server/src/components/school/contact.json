@@ -1,0 +1,11 @@
+{
+  "collectionName": "components_school_contacts",
+  "info": { "displayName": "Contact", "icon": "phone" },
+  "options": {},
+  "attributes": {
+    "phone": { "type": "string" },
+    "email": { "type": "email" },
+    "website": { "type": "string" },
+    "instagram": { "type": "string" }
+  }
+}

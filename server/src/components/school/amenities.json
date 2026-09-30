@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_school_amenities",
+  "info": { "displayName": "Amenities", "icon": "check" },
+  "options": {},
+  "attributes": {
+    "showers": { "type": "boolean", "default": false },
+    "changingRooms": { "type": "boolean", "default": false },
+    "parking": { "type": "boolean", "default": false },
+    "giRental": { "type": "boolean", "default": false },
+    "proShop": { "type": "boolean", "default": false },
+    "kidsArea": { "type": "boolean", "default": false },
+    "airConditioning": { "type": "boolean", "default": false }
+  }
+}

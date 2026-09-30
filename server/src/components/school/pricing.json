@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_school_pricings",
+  "info": { "displayName": "Pricing", "icon": "priceTag" },
+  "options": {},
+  "attributes": {
+    "visitorsWelcome": { "type": "boolean", "default": false },
+    "dropInFee": { "type": "decimal", "min": 0 },
+    "dropInNotes": { "type": "string" },
+    "freeTrial": { "type": "boolean", "default": false },
+    "freeTrialNotes": { "type": "string" },
+    "monthlyMin": { "type": "decimal", "min": 0 },
+    "monthlyMax": { "type": "decimal", "min": 0 },
+    "currency": { "type": "enumeration", "enum": ["USD"], "default": "USD" }
+  }
+}

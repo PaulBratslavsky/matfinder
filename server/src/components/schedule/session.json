@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_schedule_sessions",
+  "info": { "displayName": "Session", "icon": "clock" },
+  "options": {},
+  "attributes": {
+    "day": { "type": "enumeration", "required": true, "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] },
+    "startTime": { "type": "time", "required": true },
+    "endTime": { "type": "time", "required": true },
+    "classType": { "type": "enumeration", "required": true,
+      "enum": ["fundamentals", "all_levels", "advanced", "open_mat", "competition", "kids", "womens"] },
+    "style": { "type": "enumeration", "required": true, "enum": ["gi", "nogi", "both"] },
+    "notes": { "type": "string" }
+  }
+}
