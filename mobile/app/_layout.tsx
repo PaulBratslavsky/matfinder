@@ -1,61 +1,43 @@
+import '../global.css';
+
+import { PortalHost } from '@rn-primitives/portal';
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
+import * as Network from 'expo-network';
+import { Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
-import type { AppStateStatus } from 'react-native';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
-import NetInfo from '@react-native-community/netinfo';
-import 'react-native-reanimated';
+import { NAV_THEME } from '@/lib/theme';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-// Handle online/offline status
-onlineManager.setEventListener((setOnline) => {
-  return NetInfo.addEventListener((state) => {
-    setOnline(!!state.isConnected);
+// On native, React Query learns about connectivity and app focus from expo-network and AppState
+// (the browser events cover the web).
+if (Platform.OS !== 'web') {
+  onlineManager.setEventListener((setOnline) => {
+    const sub = Network.addNetworkStateListener((state) => setOnline(!!state.isConnected));
+    return () => sub.remove();
   });
-});
-
-// Handle app focus for refetching
-function onAppStateChange(status: AppStateStatus) {
-  if (Platform.OS !== 'web') {
-    focusManager.setFocused(status === 'active');
-  }
 }
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60, // 1 minute (reduced for faster updates)
-      retry: 3,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-    },
-  },
+  defaultOptions: { queries: { retry: 2, refetchOnWindowFocus: true, refetchOnReconnect: true } },
 });
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
-  // Subscribe to app state changes
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', onAppStateChange);
-    return () => subscription.remove();
+    if (Platform.OS === 'web') return;
+    const sub = AppState.addEventListener('change', (status) => focusManager.setFocused(status === 'active'));
+    return () => sub.remove();
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={NAV_THEME.light}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
+        <PortalHost />
       </ThemeProvider>
     </QueryClientProvider>
   );
