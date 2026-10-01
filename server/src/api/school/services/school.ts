@@ -5,7 +5,6 @@
 
 import { factories } from '@strapi/strapi';
 import type { Core } from '@strapi/strapi';
-import session from '../../../components/schedule/session.json';
 import { blocksToText, textToBlocks } from '../../../lib/blocks';
 import { draftStatus, pendingDrafts, type DraftStatus, type PendingDraft } from '../../../lib/drafts';
 import { isUniqueViolation, ToolError } from '../../../lib/errors';
@@ -13,51 +12,22 @@ import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
 import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewares/normalize-contact';
 import { slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
-import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
+import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type Weekday } from '../../../lib/time';
+import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
+
+// The derived fields (the spec's *Time rules*) and the directory item live in lib/directory.ts, free of Strapi.
+export { deriveStyles, derivePrograms, nextSessionToday, toTodaySessions } from '../../../lib/directory';
+export type { ApiSession } from '../../../lib/directory';
 
 const SCHOOL = 'api::school.school';
 const CITY = 'api::city.city';
 const AFFILIATION = 'api::affiliation.affiliation';
 const INSTRUCTOR = 'api::instructor.instructor';
 
-const CLASS_TYPES: string[] = session.attributes.classType.enum;
 const MEDIA_FIELDS = ['url', 'alternativeText', 'width', 'height', 'formats'];
 const MAX_SESSIONS = 100;
 
-type Session = { day: Weekday; startTime: string; endTime: string; classType: string; style: string; notes?: string | null };
-export type ApiSession = { start: string; end: string; classType: string; style: string };
-
-// ---- Derived fields (the spec's *Time rules*) ----
-
-/** Sessions on the city-local weekday, sorted by start, with times as `HH:mm`. */
-export function toTodaySessions(schedule: Session[] | null | undefined, now: CityNow): ApiSession[] {
-  return (schedule ?? [])
-    .filter((s) => s.day === now.weekday)
-    .sort((a, b) => toMinutes(a.startTime)! - toMinutes(b.startTime)!)
-    .map((s) => ({ start: toHHmm(s.startTime), end: toHHmm(s.endTime), classType: s.classType, style: s.style }));
-}
-
-/** The first session today that hasn't ended; `onNow` when it has already started ("On now" in the app). */
-export function nextSessionToday(today: ApiSession[], now: CityNow): (ApiSession & { onNow: boolean }) | null {
-  const next = today.find((s) => toMinutes(s.end)! > now.minutes);
-  return next ? { ...next, onNow: toMinutes(next.start)! <= now.minutes } : null;
-}
-
-/** Distinct `gi` / `nogi` from the schedule; a `both` session counts as both. */
-export function deriveStyles(schedule: Session[] | null | undefined): ('gi' | 'nogi')[] {
-  const styles = new Set((schedule ?? []).flatMap((s) => (s.style === 'both' ? ['gi', 'nogi'] : [s.style])));
-  return (['gi', 'nogi'] as const).filter((s) => styles.has(s));
-}
-
-/** Distinct class types from the schedule, in the schema's order. */
-export function derivePrograms(schedule: Session[] | null | undefined): string[] {
-  const types = new Set((schedule ?? []).map((s) => s.classType));
-  return CLASS_TYPES.filter((t) => types.has(t));
-}
-
 // ---- Shaping ----
-
-const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v));
 
 const media = (m: any) =>
   m ? { url: m.url, alternativeText: m.alternativeText ?? null, width: m.width ?? null, height: m.height ?? null, formats: m.formats ?? null } : null;
@@ -69,8 +39,6 @@ function withoutIds<T>(value: T): T {
   }
   return value;
 }
-
-const hasCoords = (loc: any) => Number.isFinite(loc?.latitude) && Number.isFinite(loc?.longitude);
 
 // ---- Draft-write inputs (the MCP tool contracts) ----
 
@@ -263,25 +231,9 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         localDate: now.localDate,
         weekday: now.weekday,
         generatedAt: new Date().toISOString(),
-        // Built from an explicit list: the schedule is loaded to compute today's sessions, but only those go out.
-        // A school without coordinates can't be placed on the map, so it's left out.
-        schools: schools.filter((s) => hasCoords(s.location)).map((s) => ({
-          documentId: s.documentId,
-          slug: s.slug,
-          name: s.name,
-          logo: s.logo ? { url: s.logo.formats?.thumbnail?.url ?? s.logo.url } : null,
-          latitude: s.location.latitude,
-          longitude: s.location.longitude,
-          neighborhood: s.neighborhood ?? null,
-          postalCode: s.postalCode ?? null,
-          affiliation: s.affiliation?.name ?? null,
-          styles: deriveStyles(s.schedule),
-          programs: derivePrograms(s.schedule),
-          visitorsWelcome: s.pricing?.visitorsWelcome ?? false,
-          dropInFee: num(s.pricing?.dropInFee),
-          currency: s.pricing?.currency ?? 'USD',
-          todaySessions: toTodaySessions(s.schedule, now),
-        })),
+        // Each item comes from an explicit field list (lib/directory.ts). A school without coordinates can't be
+        // placed on the map, so it's left out.
+        schools: schools.filter((s) => hasCoords(s.location)).map((s) => toDirectoryItem(s, now)),
       };
     },
 

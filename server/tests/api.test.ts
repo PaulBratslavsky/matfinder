@@ -1,0 +1,146 @@
+/**
+ * Server integration suite (spec M9): runs against a Strapi with the sample seed. `npm run test:integration:isolated`
+ * starts a throwaway one on :1342; `API_URL=… npm run test:integration` targets another server (the MCP checks need
+ * ALLOW_ADMIN_BOOTSTRAP on a fresh database and are skipped otherwise).
+ */
+import { randomBytes } from 'node:crypto';
+import { beforeAll, describe, expect, inject, it } from 'vitest';
+import { DIRECTORY_FIELDS } from '../src/lib/directory';
+
+const API = (process.env.API_URL ?? 'http://localhost:1342').replace(/\/$/, '');
+const WEB_ORIGIN = 'http://localhost:8083';
+const TOOLS = ['list_reference_data', 'find_schools', 'get_school_draft', 'upsert_school', 'set_school_schedule', 'upsert_instructor', 'upsert_affiliation', 'list_pending_drafts'];
+
+const get = (path: string, cookie?: string) => fetch(`${API}${path}`, { headers: cookie ? { cookie } : {} });
+
+async function signUp(): Promise<string> {
+  const res = await fetch(`${API}/api/auth/sign-up/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: WEB_ORIGIN },
+    body: JSON.stringify({ name: 'Integration Test', email: `it-${randomBytes(5).toString('hex')}@example.test`, password: randomBytes(12).toString('hex') }),
+  });
+  expect(res.status).toBe(200);
+  return res.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+}
+
+let rpcId = 0;
+async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}) {
+  const res = await fetch(`${API}/mcp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params }),
+  });
+  const text = await res.text();
+  const line = text.split('\n').find((l) => l.startsWith('data: '));
+  return { status: res.status, body: line ? JSON.parse(line.slice(6)) : text ? JSON.parse(text) : null };
+}
+async function callTool(token: string, name: string, args: Record<string, unknown>) {
+  const { body } = await mcp(token, 'tools/call', { name, arguments: args });
+  const result = body.result;
+  return { isError: !!result.isError, data: result.structuredContent, error: result.isError ? JSON.parse(result.content[0].text) : null };
+}
+
+describe('public directory', () => {
+  it('lists the published sample schools with exactly the public field set', async () => {
+    const res = await get('/api/schools/directory?city=las-vegas');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=60');
+    const { data } = await res.json();
+    expect(Object.keys(data)).toEqual(['city', 'localDate', 'weekday', 'generatedAt', 'schools']);
+    expect(Object.keys(data.city)).toEqual(['slug', 'name', 'timezone', 'center', 'defaultZoom']);
+    expect(data.schools.length).toBeGreaterThanOrEqual(8);
+    for (const s of data.schools) expect(Object.keys(s)).toEqual([...DIRECTORY_FIELDS]);
+    for (const s of data.schools) for (const t of s.todaySessions) expect(Object.keys(t)).toEqual(['start', 'end', 'classType', 'style']);
+  });
+
+  it('needs a city and 404s an unknown one', async () => {
+    expect((await get('/api/schools/directory')).status).toBe(400);
+    expect((await get('/api/schools/directory?city=reno')).status).toBe(404);
+  });
+
+  it('serves cities publicly (core find)', async () => {
+    expect((await get('/api/cities')).status).toBe(200);
+  });
+});
+
+describe('the account gate', () => {
+  it('bySlug is 401/403 signed out, then 200 after signing up', async () => {
+    const slug = 'sample-summerlin-bjj-demo';
+    expect([401, 403]).toContain((await get(`/api/schools/slug/${slug}`)).status);
+    const cookie = await signUp();
+    const res = await get(`/api/schools/slug/${slug}`, cookie);
+    expect(res.status).toBe(200);
+    const { data } = await res.json();
+    expect(data.slug).toBe(slug);
+    expect(data.schedule.length).toBeGreaterThan(0);
+    expect(data.headInstructors.length).toBeGreaterThan(0);
+    expect(data.pricing).toBeTruthy();
+    expect((await get('/api/schools/slug/no-such-school', cookie)).status).toBe(404);
+  });
+
+  it('core school, instructor and affiliation routes are closed to everyone', async () => {
+    const cookie = await signUp();
+    for (const path of ['/api/schools', '/api/instructors', '/api/affiliations']) {
+      expect((await get(path)).status).toBe(403);
+      expect((await get(path, cookie)).status).toBe(403);
+    }
+  });
+});
+
+describe('MCP (curator tools)', () => {
+  let token: string | null = null;
+
+  beforeAll(async () => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return;
+    const res = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({
+        name: `it-curator-${randomBytes(3).toString('hex')}`,
+        lifespan: null,
+        adminPermissions: TOOLS.map((t) => ({ action: `api::matfinder-mcp.${t.replace(/_/g, '-')}` })),
+      }),
+    });
+    expect(res.status).toBe(201);
+    token = (await res.json()).data.accessKey;
+  });
+
+  it('tools/list with the curator token shows exactly the 8 MatFinder tools', async (ctx) => {
+    if (!token) return ctx.skip();
+    const { body } = await mcp(token, 'tools/list');
+    expect(body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([...TOOLS].sort());
+  });
+
+  it('rejects a call without a token', async () => {
+    const { status, body } = await mcp(null, 'tools/list');
+    expect(status === 401 || !!body?.error).toBe(true);
+  });
+
+  it('upsert_school creates a draft that stays out of the directory', async (ctx) => {
+    if (!token) return ctx.skip();
+    const r = await callTool(token, 'upsert_school', {
+      name: `Integration Draft Gym ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas',
+      address: '1 Test Way, Las Vegas, NV',
+      latitude: 36.17,
+      longitude: -115.14,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.data).toMatchObject({ created: true, status: 'never-published' });
+    const { data } = await (await get('/api/schools/directory?city=las-vegas')).json();
+    expect(data.schools.map((s: { slug: string }) => s.slug)).not.toContain(r.data.slug);
+    const pending = await callTool(token, 'list_pending_drafts', { type: 'school' });
+    expect(pending.data.items.map((i: { slug: string }) => i.slug)).toContain(r.data.slug);
+  });
+
+  it('set_school_schedule rejects end <= start with the field path', async (ctx) => {
+    if (!token) return ctx.skip();
+    const r = await callTool(token, 'set_school_schedule', {
+      slug: 'sample-summerlin-bjj-demo',
+      sessions: [{ day: 'mon', start: '19:00', end: '19:00', classType: 'open_mat', style: 'gi' }],
+    });
+    expect(r.isError).toBe(true);
+    expect(r.error).toMatchObject({ error: 'VALIDATION_ERROR', path: ['sessions', 0, 'end'] });
+  });
+});
