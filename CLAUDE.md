@@ -8,7 +8,7 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
 ## Status (2026-09-30)
-M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools), M8 (#11, sample seed), M6 (#9, Expo app), M7 (#10, auth UI) and M9 (#12, tests + Vercel config) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, and Strapi Cloud. Every milestone's code is written; what's left is on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR lists the steps). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
+M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools), M8 (#11, sample seed), M6 (#9, Expo app), M7 (#10, auth UI) and M9 (#12, tests + Vercel config) are open as stacked draft PRs. They wait on an admin login to check the map field and the new types, and Strapi Cloud. Every milestone's code is written; what's left is on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR lists the steps). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
