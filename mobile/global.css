@@ -2,51 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MatFinder: light theme following metravel-explore. */
+/*
+ * MatFinder: the React Native Reusables colors, as RGB triplets. These are the light ("paper") defaults only;
+ * the real values come from theme/tokens.ts at runtime (theme/ThemeProvider.tsx sets them for the current mode).
+ * Edit colors in theme/tokens.ts, not here. theme/tokens.test.ts fails if these drift from the light palette.
+ */
 @layer base {
   :root {
-    /* metravel-explore's iOS system palette: #007AFF blue, #F2F2F7 fill, #8E8E93 secondary, #E5E5EA separator. */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 211 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 24% 96%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 240 24% 96%;
-    --muted-foreground: 240 2% 57%;
-    --accent: 240 11% 91%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 3 100% 59%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 11% 91%;
-    --input: 240 11% 91%;
-    --ring: 211 100% 50%;
+    --background: 244 241 234;
+    --foreground: 20 21 24;
+    --card: 255 255 255;
+    --card-foreground: 20 21 24;
+    --popover: 255 255 255;
+    --popover-foreground: 20 21 24;
+    --primary: 208 38 33;
+    --primary-foreground: 255 255 255;
+    --secondary: 228 222 210;
+    --secondary-foreground: 20 21 24;
+    --muted: 228 222 210;
+    --muted-foreground: 92 95 102;
+    --accent: 228 222 210;
+    --accent-foreground: 20 21 24;
+    --destructive: 208 38 33;
+    --destructive-foreground: 255 255 255;
+    --border: 231 225 213;
+    --input: 201 193 177;
+    --ring: 192 32 26;
     --radius: 0.75rem;
-  }
-
-  .dark:root {
-    --background: 222 18% 7%;
-    --foreground: 0 0% 98%;
-    --card: 222 16% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 222 16% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 216 78% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 12% 17%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 222 12% 15%;
-    --muted-foreground: 220 8% 65%;
-    --accent: 222 12% 19%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 222 12% 21%;
-    --input: 222 12% 23%;
-    --ring: 216 78% 62%;
   }
 }

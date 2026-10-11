@@ -1,22 +1,17 @@
 import { View } from 'react-native';
-import { Badge } from '@/components/ui/badge';
-import { Text } from '@/components/ui/text';
+import { Chip } from '@/components/kit';
 import type { ClassType } from '@/lib/api/schools';
 import { classTypeLabel } from '@/lib/time';
 
 export function ProgramChips({ programs, styles }: { programs: ClassType[]; styles: ('gi' | 'nogi')[] }) {
   if (!programs.length && !styles.length) return null;
   return (
-    <View className="flex-row flex-wrap gap-1.5">
+    <View style={{ marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
       {styles.map((s) => (
-        <Badge key={s}>
-          <Text>{s === 'gi' ? 'Gi' : 'No-Gi'}</Text>
-        </Badge>
+        <Chip key={s} label={s === 'gi' ? 'Gi' : 'No-Gi'} />
       ))}
       {programs.map((p) => (
-        <Badge key={p} variant="secondary">
-          <Text>{classTypeLabel(p)}</Text>
-        </Badge>
+        <Chip key={p} label={classTypeLabel(p)} />
       ))}
     </View>
   );

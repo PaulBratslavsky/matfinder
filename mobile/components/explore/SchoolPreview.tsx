@@ -1,96 +1,125 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActionButton, Card, Chip, Label, Progress, RankBar } from '@/components/kit';
+import { useSession } from '@/hooks/useSession';
 import type { DirectorySchool } from '@/lib/api/schools';
-import type { CityNow } from '@/lib/time';
-import { IOS } from './ios';
-import { NextSession } from './NextSession';
-import { formatDistance } from './SchoolCard';
+import { dropInLabel, formatDistance, formatDuration, sessionsLeftToday, type SessionState } from '@/lib/explore';
+import { classTypeLabel, formatTime, styleLabel, toMinutes, type CityNow } from '@/lib/time';
+import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 
-/** "Drop-in $25", "Free drop-in", or null when the school hasn't published a fee. */
-export function dropInLabel(s: Pick<DirectorySchool, 'dropInFee' | 'currency'>): string | null {
-  if (s.dropInFee == null) return null;
-  if (s.dropInFee === 0) return 'Free drop-in';
-  const amount = Number.isInteger(s.dropInFee) ? String(s.dropInFee) : s.dropInFee.toFixed(2);
-  return `Drop-in ${s.currency === 'USD' ? '$' : `${s.currency} `}${amount}`;
+/** The next class today, big: "Open mat · 7:00 pm", when it ends and how long until it starts (or is left). */
+function NextSessionCard({ school, state, now }: { school: DirectorySchool; state: SessionState; now: CityNow }) {
+  const styles = useStyles();
+  const left = sessionsLeftToday(school.todaySessions, now);
+  if (state.kind === 'done' || state.kind === 'none') {
+    return (
+      <Card style={styles.next}>
+        <Label>Today</Label>
+        <Text style={styles.nextTitle}>{state.kind === 'done' ? 'No more classes today' : 'No classes today'}</Text>
+      </Card>
+    );
+  }
+  const s = state.session;
+  const live = state.kind === 'live';
+  const length = toMinutes(s.end) - toMinutes(s.start);
+  return (
+    <Card style={styles.next}>
+      <Label tone={live ? 'live' : 'secondary'} size={12}>
+        {live ? 'On now' : 'Next session · today'}
+      </Label>
+      <Text style={styles.nextTitle}>
+        {classTypeLabel(s.classType)}
+        {live ? '' : ` · ${formatTime(s.start)}`}
+      </Text>
+      <Text style={styles.nextMeta}>
+        {styleLabel(s.style)} · until {formatTime(s.end)} ·{' '}
+        <Text style={styles.nextStrong}>{live ? `${formatDuration(state.minutesLeft)} left` : `starts in ${formatDuration(state.minutesUntil)}`}</Text>
+      </Text>
+      {live && <Progress value={state.progress} label={`${length - state.minutesLeft} of ${length} minutes done`} />}
+      <View style={styles.leftRow}>
+        <RankBar stripes={left} />
+        <Label size={13}>{`${left} left today`}</Label>
+      </View>
+    </Card>
+  );
 }
 
 /**
- * The tapped school, shown in the bottom sheet: "can I train here tonight, and what does it cost?" plus
- * View school, which opens the account-only school page.
+ * The tapped school in the bottom sheet: "can I train here tonight, and what does it cost?", plus View gym,
+ * which opens the account-only school page.
  */
 export function SchoolPreview({
   school,
+  state,
   now,
   distanceMiles,
   onBack,
 }: {
   school: DirectorySchool;
+  state: SessionState;
   now: CityNow;
   distanceMiles: number | null;
   onBack: () => void;
 }) {
-  const subtitle = [school.affiliation, school.neighborhood].filter(Boolean).join(' · ');
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const session = useSession();
+  const kicker = [school.neighborhood, distanceMiles != null ? formatDistance(distanceMiles) : null].filter(Boolean).join(' · ');
   const fee = dropInLabel(school);
-  const pills = [
-    { label: school.visitorsWelcome ? 'Visitors welcome' : 'Members only', tone: school.visitorsWelcome ? 'green' : 'plain' },
-    ...(fee ? [{ label: fee, tone: 'plain' }] : []),
-    ...school.styles.map((s) => ({ label: s === 'gi' ? 'Gi' : 'No-Gi', tone: 'plain' })),
-  ];
   return (
-    <View accessibilityLabel={`${school.name} preview`} style={styles.container}>
-      <View style={styles.handle} />
-      <Pressable accessibilityRole="button" accessibilityLabel="All schools" onPress={onBack} hitSlop={8} style={styles.back}>
-        <Ionicons name="chevron-back" size={18} color={IOS.blue} />
-        <Text style={styles.backText}>All schools</Text>
+    <ScrollView accessibilityLabel={`${school.name} preview`} style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <Pressable accessibilityRole="button" accessibilityLabel="All gyms" onPress={onBack} hitSlop={8} style={styles.back}>
+        <Ionicons name="chevron-back" size={18} color={colors.text} />
+        <Text style={styles.backText}>All gyms</Text>
       </Pressable>
 
-      <View style={styles.titleRow}>
-        <View style={styles.titleText}>
-          <Text style={styles.name}>{school.name}</Text>
-          {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-        </View>
-        {distanceMiles != null && <Text style={styles.distance}>{formatDistance(distanceMiles)}</Text>}
+      <View style={styles.head}>
+        {!!kicker && <Label tone="red">{kicker}</Label>}
+        <Text role="heading" style={styles.name}>
+          {school.name}
+        </Text>
+        {!!school.affiliation && <Text style={styles.team}>{school.affiliation}</Text>}
       </View>
 
-      <View style={styles.session}>
-        <NextSession sessions={school.todaySessions} now={now} size="md" />
-      </View>
+      <NextSessionCard school={school} state={state} now={now} />
 
-      <View style={styles.pills}>
-        {pills.map((p) => (
-          <View key={p.label} style={[styles.pill, p.tone === 'green' && styles.pillGreen]}>
-            <Text style={[styles.pillText, p.tone === 'green' && styles.pillTextGreen]}>{p.label}</Text>
-          </View>
+      <View style={styles.chips}>
+        {school.visitorsWelcome ? <Chip label="Visitors welcome" variant="solid" /> : <Chip label="Members only" icon="lock-closed-outline" />}
+        {!!fee && <Chip label={fee} />}
+        {school.styles.map((s) => (
+          <Chip key={s} label={styleLabel(s)} />
         ))}
       </View>
 
       <Link href={{ pathname: '/schools/[slug]', params: { slug: school.slug } }} asChild>
-        {/* A plain style: Link's asChild slot doesn't forward Pressable's function style on the web. */}
-        <Pressable accessibilityRole="button" style={styles.button}>
-          <Text style={styles.buttonText}>View school</Text>
-        </Pressable>
+        <ActionButton label="View gym" size="lg" style={styles.view} />
       </Link>
-    </View>
+      {!session.data?.user && (
+        <View style={styles.lock}>
+          <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
+          <Text style={styles.lockText}>Full schedule, coaches and contact with a free account</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingTop: 8, paddingHorizontal: 16, paddingBottom: 24 },
-  handle: { width: 36, height: 5, borderRadius: 3, backgroundColor: IOS.fillPressed, alignSelf: 'center', marginBottom: 12 },
-  back: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 10 },
-  backText: { fontSize: 15, color: IOS.blue },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  titleText: { flex: 1 },
-  name: { fontSize: 20, fontWeight: '600', color: IOS.label },
-  subtitle: { fontSize: 13, color: IOS.secondaryLabel, marginTop: 2 },
-  distance: { fontSize: 13, fontWeight: '500', color: IOS.blue, marginTop: 4 },
-  session: { marginTop: 12 },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  pill: { backgroundColor: IOS.fill, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  pillGreen: { backgroundColor: 'rgba(52, 199, 89, 0.15)' },
-  pillText: { fontSize: 13, color: IOS.label },
-  pillTextGreen: { color: '#248A3D', fontWeight: '500' },
-  button: { marginTop: 16, backgroundColor: IOS.blue, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  buttonText: { fontSize: 17, fontWeight: '600', color: IOS.white },
-});
+const useStyles = makeStyles((t) => ({
+  scroll: { flex: 1 },
+  container: { paddingHorizontal: t.layout.gutter, paddingBottom: 24 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', height: 40, marginLeft: -6, paddingHorizontal: 6 },
+  backText: { ...t.type.label, fontSize: 15, color: t.colors.text },
+  head: { gap: 4 },
+  name: { ...t.type.display, fontSize: 32, lineHeight: 34, color: t.colors.text },
+  team: { ...t.type.body, fontSize: 15, color: t.colors.textSecondary },
+  next: { marginTop: 12, gap: 3, paddingVertical: 12 },
+  nextTitle: { ...t.type.heavy, fontSize: 24, lineHeight: 26, color: t.colors.text },
+  nextMeta: { ...t.type.body, fontSize: 14, color: t.colors.textSecondary },
+  nextStrong: { ...t.type.bodySemibold, color: t.colors.text },
+  leftRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  view: { marginTop: 14 },
+  lock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
+  lockText: { ...t.type.body, fontSize: 13, color: t.colors.textSecondary },
+}));

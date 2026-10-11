@@ -1,4 +1,4 @@
-import Mapbox, { Camera, MapView, PointAnnotation, ShapeSource, FillLayer, LineLayer, LocationPuck, Callout } from '@rnmapbox/maps';
+import Mapbox, { Camera, MapView, PointAnnotation, ShapeSource, FillLayer, LineLayer, LocationPuck } from '@rnmapbox/maps';
 import { useCallback, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { MapPin, PIN_WIDTH, pinGeometry } from '@/components/map/MapPin';
+import type { PinTone } from '@/lib/explore';
+import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 
 // Set your Mapbox access token
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '');
@@ -89,7 +92,22 @@ export type MapMarker = {
   latitude: number;
   name: string;
   address?: string;
+  /** MatFinder: live (green ON NOW tag), today (start-time tag) or muted (nothing left today). */
+  tone?: PinTone;
+  /** MatFinder: the tag above the pin ("7:00 pm", "On now"). */
+  tag?: string | null;
 };
+
+/** MatFinder: screen space covered by other UI (the bottom sheet), kept clear when the camera moves. */
+export type CameraPadding = { top: number; right: number; bottom: number; left: number };
+
+/**
+ * MatFinder: where the camera should be. It moves whenever `key` changes: fitting `bounds` ([west, south],
+ * [east, north]) or centering on a point.
+ */
+export type MapCamera =
+  | { key: string; bounds: [[number, number], [number, number]] }
+  | { key: string; center: { longitude: number; latitude: number }; zoom: number };
 
 export type LocationMapProps = {
   location: MapLocation;
@@ -105,9 +123,21 @@ export type LocationMapProps = {
   showUserLocation?: boolean;
   markers?: MapMarker[];
   onMarkerSelect?: (marker: MapMarker) => void;
-  /** MatFinder: the selected marker is drawn larger and blue. */
+  /** MatFinder: the selected marker is drawn larger with a halo; the others fade. */
   selectedMarkerId?: string | null;
+  /** MatFinder: a declarative camera (see MapCamera); `location` stays the recenter target. */
+  camera?: MapCamera;
+  cameraPadding?: CameraPadding;
+  /** MatFinder: distance of the zoom/recenter card from the top of the map. */
+  controlsTop?: number;
+  /** MatFinder: false for a static map (the school page's "Get there"). */
+  interactive?: boolean;
 };
+
+const NO_PADDING: CameraPadding = { top: 0, right: 0, bottom: 0, left: 0 };
+/** Fitting never zooms in further than this (one school, or a few close together). */
+const FIT_MAX_ZOOM = 14;
+const toCameraPadding = (p: CameraPadding) => ({ paddingTop: p.top, paddingRight: p.right, paddingBottom: p.bottom, paddingLeft: p.left });
 
 /**
  * Calculate appropriate zoom level to fit a radius in miles
@@ -140,10 +170,20 @@ export function LocationMap({
   markers = [],
   onMarkerSelect,
   selectedMarkerId = null,
+  camera,
+  cameraPadding = NO_PADDING,
+  controlsTop = Platform.OS === 'ios' ? 120 : 76,
+  interactive = true,
   mapRef,
 }: LocationMapProps & { mapRef?: React.RefObject<LocationMapRef | null> }) {
+  const themed = useThemedStyles();
+  const theme = useTheme();
   const cameraRef = useRef<Camera>(null);
-  const [currentZoom, setCurrentZoom] = useState(location.zoom);
+  const mapViewRef = useRef<MapView>(null);
+  // MatFinder: follow `camera` only when its key changes (adjusting state during render), so a new object with
+  // the same key doesn't snap the map back after the user panned.
+  const [activeCamera, setActiveCamera] = useState(camera);
+  if (camera?.key !== activeCamera?.key) setActiveCamera(camera);
 
   // Expose flyTo method via ref
   useImperativeHandle(
@@ -155,29 +195,18 @@ export function LocationMap({
           zoomLevel: zoom ?? 14,
           animationDuration: 1000,
         });
-        if (zoom) setCurrentZoom(zoom);
       },
     }),
     [],
   );
 
-  const handleZoomIn = useCallback(() => {
-    const newZoom = Math.min(currentZoom + 1, 20);
-    setCurrentZoom(newZoom);
-    cameraRef.current?.setCamera({
-      zoomLevel: newZoom,
-      animationDuration: 300,
-    });
-  }, [currentZoom]);
-
-  const handleZoomOut = useCallback(() => {
-    const newZoom = Math.max(currentZoom - 1, 1);
-    setCurrentZoom(newZoom);
-    cameraRef.current?.setCamera({
-      zoomLevel: newZoom,
-      animationDuration: 300,
-    });
-  }, [currentZoom]);
+  // MatFinder: zoom from the map's actual zoom (the camera may have been fitted to bounds).
+  const zoomBy = useCallback(async (delta: number) => {
+    const zoom = (await mapViewRef.current?.getZoom()) ?? 12;
+    cameraRef.current?.zoomTo(Math.min(20, Math.max(1, zoom + delta)), 300);
+  }, []);
+  const handleZoomIn = useCallback(() => zoomBy(1), [zoomBy]);
+  const handleZoomOut = useCallback(() => zoomBy(-1), [zoomBy]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -190,10 +219,10 @@ export function LocationMap({
     cameraRef.current?.setCamera({
       centerCoordinate: [currentLocation.longitude, currentLocation.latitude],
       zoomLevel: zoom,
+      padding: toCameraPadding(cameraPadding),
       animationDuration: 500,
     });
-    setCurrentZoom(zoom);
-  }, [currentLocation, radiusMiles]);
+  }, [currentLocation, radiusMiles, cameraPadding]);
 
   // Calculate zoom to fit radius if provided
   const effectiveZoom = radiusMiles ? getZoomForRadius(radiusMiles) : currentLocation.zoom;
@@ -301,27 +330,55 @@ export function LocationMap({
 
   return (
     <View style={[styles.container, style]}>
-      <MapView style={styles.map}>
-        <Camera
-          ref={cameraRef}
-          centerCoordinate={[currentLocation.longitude, currentLocation.latitude]}
-          zoomLevel={effectiveZoom}
-          pitch={currentLocation.pitch}
-          heading={currentLocation.bearing}
-        />
+      <MapView
+        ref={mapViewRef}
+        style={styles.map}
+        styleURL={theme.mapStyle}
+        scaleBarEnabled={false}
+        compassEnabled={false}
+        scrollEnabled={interactive}
+        zoomEnabled={interactive}
+        rotateEnabled={interactive}
+        pitchEnabled={interactive}>
+        {/* MatFinder: a `camera` prop drives the camera declaratively (fit bounds or center); without one, metravel's. */}
+        {activeCamera && 'bounds' in activeCamera ? (
+          <Camera
+            ref={cameraRef}
+            bounds={{ sw: activeCamera.bounds[0], ne: activeCamera.bounds[1] }}
+            padding={toCameraPadding(cameraPadding)}
+            maxZoomLevel={FIT_MAX_ZOOM}
+            animationDuration={800}
+          />
+        ) : activeCamera ? (
+          <Camera
+            ref={cameraRef}
+            centerCoordinate={[activeCamera.center.longitude, activeCamera.center.latitude]}
+            zoomLevel={activeCamera.zoom}
+            padding={toCameraPadding(cameraPadding)}
+            animationDuration={800}
+          />
+        ) : (
+          <Camera
+            ref={cameraRef}
+            centerCoordinate={[currentLocation.longitude, currentLocation.latitude]}
+            zoomLevel={effectiveZoom}
+            pitch={currentLocation.pitch}
+            heading={currentLocation.bearing}
+          />
+        )}
         {circleGeoJSON && (
           <ShapeSource id="radius-circle" shape={circleGeoJSON}>
             <FillLayer
               id="radius-fill"
               style={{
-                fillColor: 'rgba(0, 122, 255, 0.1)',
-                fillOutlineColor: 'rgba(0, 122, 255, 0.5)',
+                fillColor: theme.colors.redTint,
+                fillOutlineColor: theme.colors.red,
               }}
             />
             <LineLayer
               id="radius-line"
               style={{
-                lineColor: 'rgba(0, 122, 255, 0.6)',
+                lineColor: theme.colors.red,
                 lineWidth: 2,
                 lineDasharray: [2, 2],
               }}
@@ -332,34 +389,30 @@ export function LocationMap({
           <PointAnnotation
             id="location-marker"
             coordinate={[currentLocation.longitude, currentLocation.latitude]}
+            anchor={{ x: 0.5, y: 0.5 }}
             onSelected={onMarkerPress}
           >
-            <View style={styles.marker} />
+            <MapPin tone="today" selected />
           </PointAnnotation>
         )}
         {markers.map((marker) => {
           const selected = marker.id === selectedMarkerId;
+          const dimmed = !!selectedMarkerId && !selected;
+          const tone = marker.tone ?? 'today';
+          const g = pinGeometry(tone, selected, marker.tag);
           return (
           <PointAnnotation
-            // Re-mount on selection: annotation views are snapshotted, so a style change alone wouldn't show.
-            key={`${marker.id}-${selected ? 'selected' : 'idle'}`}
+            // Re-mount on change: annotation views are snapshotted, so a style change alone wouldn't show.
+            key={`${marker.id}-${tone}-${marker.tag ?? ''}-${selected ? 'selected' : dimmed ? 'dimmed' : 'idle'}-${theme.scheme}`}
             id={`marker-${marker.id}`}
             coordinate={[marker.longitude, marker.latitude]}
+            // Anchor the pin's center (not the tag above it) on the school.
+            anchor={{ x: 0.5, y: g.centerY / g.height }}
             onSelected={() => onMarkerSelect?.(marker)}
           >
-            <View style={[styles.savedMarker, selected && styles.savedMarkerSelected]}>
-              <Ionicons name="location" size={selected ? 16 : 12} color="#FFFFFF" />
+            <View accessibilityLabel={`${marker.name} pin`} style={{ width: PIN_WIDTH, height: g.height }}>
+              <MapPin tone={tone} tag={marker.tag} selected={selected} dimmed={dimmed} />
             </View>
-            <Callout title={marker.name}>
-              <View style={styles.calloutContainer}>
-                <Text style={styles.calloutTitle}>{marker.name}</Text>
-                {marker.address && (
-                  <Text style={styles.calloutAddress} numberOfLines={2}>
-                    {marker.address}
-                  </Text>
-                )}
-              </View>
-            </Callout>
           </PointAnnotation>
           );
         })}
@@ -367,26 +420,17 @@ export function LocationMap({
       </MapView>
 
       {showControls && (
-        <View style={styles.controlsContainer}>
-          <Pressable
-            style={({ pressed }) => [styles.controlButton, pressed && styles.controlButtonPressed]}
-            onPress={handleZoomIn}
-          >
-            <Ionicons name="add" size={24} color="#000" />
+        <View style={[themed.controls, { top: controlsTop }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Zoom in" style={themed.control} onPress={handleZoomIn}>
+            <Ionicons name="add" size={22} color={theme.colors.text} />
           </Pressable>
-          <View style={styles.controlDivider} />
-          <Pressable
-            style={({ pressed }) => [styles.controlButton, pressed && styles.controlButtonPressed]}
-            onPress={handleZoomOut}
-          >
-            <Ionicons name="remove" size={24} color="#000" />
+          <View style={themed.divider} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Zoom out" style={themed.control} onPress={handleZoomOut}>
+            <Ionicons name="remove" size={22} color={theme.colors.text} />
           </Pressable>
-          <View style={styles.controlSpacer} />
-          <Pressable
-            style={({ pressed }) => [styles.controlButton, styles.recenterButton, pressed && styles.controlButtonPressed]}
-            onPress={handleRecenter}
-          >
-            <Ionicons name="locate" size={22} color="#007AFF" />
+          <View style={themed.divider} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Recenter map" style={themed.control} onPress={handleRecenter}>
+            <Ionicons name="navigate-outline" size={19} color={theme.colors.text} />
           </Pressable>
         </View>
       )}
@@ -504,62 +548,27 @@ export function LocationMap({
   );
 }
 
+// MatFinder: the zoom/recenter card in the Mat room look (theme/tokens.ts).
+const useThemedStyles = makeStyles((t) => ({
+  controls: {
+    position: 'absolute',
+    right: 12,
+    width: 44,
+    borderRadius: t.radii.field,
+    backgroundColor: t.colors.overlay,
+    boxShadow: `0 4px 16px ${t.colors.shadow}`,
+    overflow: 'hidden',
+  },
+  control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  divider: { height: 1, backgroundColor: t.colors.separator, marginHorizontal: 8 },
+}));
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   map: {
     flex: 1,
-  },
-  marker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  savedMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FF3B30',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  savedMarkerSelected: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#007AFF',
-    borderWidth: 3,
-  },
-  calloutContainer: {
-    padding: 8,
-    minWidth: 120,
-    maxWidth: 200,
-  },
-  calloutTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  calloutAddress: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
   },
   searchContainer: {
     position: 'absolute',
@@ -668,38 +677,5 @@ const styles = StyleSheet.create({
   resultSubtext: {
     fontSize: 13,
     color: '#8E8E93',
-  },
-  controlsContainer: {
-    position: 'absolute',
-    right: 16,
-    top: Platform.OS === 'ios' ? 120 : 76,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  controlButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlButtonPressed: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  controlDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
-    marginHorizontal: 8,
-  },
-  controlSpacer: {
-    height: 8,
-  },
-  recenterButton: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(60, 60, 67, 0.2)',
   },
 });
