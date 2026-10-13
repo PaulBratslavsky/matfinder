@@ -384,6 +384,19 @@ Other projects on this machine use 1337, 1338, 1340, 1341, 8081, 8082 and 3000, 
 
 Local data is SQLite (`server/.tmp/data.db`); `SEED_SAMPLE_DATA=true` loads eight fictional "Sample … (Demo)" gyms in Las Vegas.
 
+### iPhone Simulator (needs a Mac)
+
+The iOS Simulator only runs on macOS with Xcode. Expo Go won't work: `@rnmapbox/maps` is native code, so the app needs its own build (`expo run:ios`). The iOS Mapbox SDK no longer needs a secret download token; only the public `pk.` token.
+
+1. **Xcode:** install it from the App Store and open it once. In Xcode → Settings → Components, get the iOS Simulator; in Settings → Locations, pick the latest Command Line Tools.
+2. **CocoaPods and Node 24:** `brew install cocoapods`, and Node 24 (for example `nvm install 24`). Watchman isn't needed on SDK 56 and later.
+3. **Reach Strapi:** Strapi listens on all interfaces, so the Simulator can use the dev machine's LAN address. Check it from the Mac first: open `http://<dev-machine-LAN-IP>:1339/api/schools/directory?city=las-vegas` in Safari; it should show JSON. If it doesn't, run Strapi on the Mac instead.
+4. **Clone and install:** `git clone https://github.com/PaulBratslavsky/matfinder.git`, then `cd matfinder/mobile && npm ci`.
+5. **`mobile/.env`:** `EXPO_PUBLIC_STRAPI_URL` and `EXPO_PUBLIC_WEB_API_BASE` set to `http://<dev-machine-LAN-IP>:1339`, `EXPO_PUBLIC_DEFAULT_CITY=las-vegas`, and `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` set to the public `pk.` token.
+6. **Build and run:** `npm run ios`. The first build takes several minutes; it boots the Simulator, installs MatFinder and starts Metro on 8083. Rebuild with `npm run ios` after a native change (a new native package or an `app.json` edit); JavaScript changes reload on their own.
+
+In the Simulator: Features → Location → Custom Location (36.1699, -115.1398) puts you in Las Vegas, so the map centers on you; without it the map fits every gym. ⌘⇧A switches light and dark.
+
 ## 15. Constraints
 
 From the user (requirements, not preferences; see `CLAUDE.md`):
