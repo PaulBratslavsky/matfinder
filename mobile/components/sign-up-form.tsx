@@ -37,7 +37,7 @@ export function SignUpForm({ redirect }: { redirect: string }) {
         <CardHeader>
           <CardTitle className="text-center text-xl sm:text-left">Create your free account</CardTitle>
           <CardDescription className="text-center sm:text-left">
-            See full schedules, prices, instructors and contact details for every school.
+            See full schedules, prices, instructors and contact details for every gym.
           </CardDescription>
         </CardHeader>
         <CardContent className="gap-6">

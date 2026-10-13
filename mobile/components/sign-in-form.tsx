@@ -32,7 +32,7 @@ export function SignInForm({ redirect }: { redirect: string }) {
         <CardHeader>
           <CardTitle className="text-center text-xl sm:text-left">Sign in to MatFinder</CardTitle>
           <CardDescription className="text-center sm:text-left">
-            Welcome back! Sign in to see full school pages.
+            Welcome back! Sign in to see full gym pages.
           </CardDescription>
         </CardHeader>
         <CardContent className="gap-6">

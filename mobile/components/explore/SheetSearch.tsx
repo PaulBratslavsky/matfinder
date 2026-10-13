@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { IOS } from './ios';
+import { Pressable, TextInput, View } from 'react-native';
+import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 
-/** metravel-explore's sheet search bar. Typing is local; the URL (?q=) updates after a short pause. */
+/** The sheet's search field. Typing is local; the URL (?q=) updates after a short pause. */
 export function SheetSearch({ value, onChange }: { value: string; onChange: (q: string) => void }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [text, setText] = useState(value);
   // When the URL changes from outside (back button, "Clear filters"), show its value: adjust state during render.
   const [synced, setSynced] = useState(value);
@@ -20,14 +22,14 @@ export function SheetSearch({ value, onChange }: { value: string; onChange: (q: 
 
   return (
     <View style={styles.container}>
-      <Ionicons name="search" size={16} color={IOS.secondaryLabel} style={styles.icon} />
+      <Ionicons name="search" size={18} color={colors.textDim} />
       <TextInput
         style={styles.input}
         value={text}
         onChangeText={setText}
-        placeholder="Search schools, neighborhoods, ZIP"
-        placeholderTextColor={IOS.secondaryLabel}
-        accessibilityLabel="Search schools"
+        placeholder="Gym, neighborhood, ZIP or team"
+        placeholderTextColor={colors.textDim}
+        accessibilityLabel="Search gyms"
         autoCorrect={false}
         returnKeyType="search"
       />
@@ -41,7 +43,7 @@ export function SheetSearch({ value, onChange }: { value: string; onChange: (q: 
             onChange('');
           }}>
           <View style={styles.clear}>
-            <Ionicons name="close" size={10} color={IOS.white} />
+            <Ionicons name="close" size={12} color={colors.bg} />
           </View>
         </Pressable>
       )}
@@ -49,17 +51,19 @@ export function SheetSearch({ value, onChange }: { value: string; onChange: (q: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: IOS.fill,
-    borderRadius: 10,
-    marginTop: 12,
-    paddingHorizontal: 10,
-    height: 36,
+    gap: 8,
+    height: 44,
+    marginHorizontal: t.layout.gutter,
+    paddingHorizontal: 14,
+    borderRadius: t.radii.field,
+    backgroundColor: t.colors.field,
+    borderWidth: 1,
+    borderColor: t.colors.fieldBorder,
   },
-  icon: { marginRight: 6 },
-  input: { flex: 1, fontSize: 15, color: IOS.label, paddingVertical: 0, outlineStyle: 'none' } as any,
-  clear: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#C7C7CC', alignItems: 'center', justifyContent: 'center' },
-});
+  input: { ...t.type.body, flex: 1, minWidth: 0, fontSize: 16, color: t.colors.text, paddingVertical: 0, outlineWidth: 0 },
+  clear: { width: 18, height: 18, borderRadius: 9, backgroundColor: t.colors.textDim, alignItems: 'center', justifyContent: 'center' },
+}));

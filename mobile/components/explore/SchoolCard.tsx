@@ -1,74 +1,82 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { Chip, Label, RankBar } from '@/components/kit';
 import type { DirectorySchool } from '@/lib/api/schools';
-import { mediaUrl } from '@/lib/media';
+import { distanceParts, dropInLabel, sessionsLeftToday, type SessionState } from '@/lib/explore';
 import type { CityNow } from '@/lib/time';
-import { IOS } from './ios';
-import { NextSession } from './NextSession';
+import { makeStyles } from '@/theme/ThemeProvider';
+import { SessionLine } from './SessionLine';
 
-export function formatDistance(miles: number): string {
-  return miles < 0.1 ? `${Math.round(miles * 5280)} ft` : `${miles.toFixed(1)} mi`;
+/** The deciding fact for a visitor: members only, the drop-in price, or just "visitors welcome". */
+export function visitChip(s: Pick<DirectorySchool, 'visitorsWelcome' | 'dropInFee' | 'currency'>) {
+  if (!s.visitorsWelcome) return <Chip label="Members only" icon="lock-closed-outline" />;
+  return <Chip label={dropInLabel(s) ?? 'Visitors welcome'} />;
 }
 
-/** metravel-explore's location card, for a school: icon (or logo), name, next session, area · team, distance. */
+/**
+ * A school in the Explore list: name and distance, what's on today (with a progress bar when it's on now),
+ * area · team, and a rank bar with one stripe per class left today.
+ */
 export function SchoolCard({
   school,
+  state,
   now,
   distanceMiles,
   onPress,
 }: {
   school: DirectorySchool;
+  state: SessionState;
   now: CityNow;
   distanceMiles: number | null;
   onPress: () => void;
 }) {
-  const logo = mediaUrl(school.logo?.url);
+  const styles = useStyles();
   const subtitle = [school.neighborhood, school.affiliation].filter(Boolean).join(' · ');
+  const left = sessionsLeftToday(school.todaySessions, now);
+  const distance = distanceMiles != null ? distanceParts(distanceMiles) : null;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={school.name}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={onPress}>
-      <View style={styles.icon}>
-        {logo ? (
-          <Image source={{ uri: logo }} style={styles.logo} contentFit="cover" />
-        ) : (
-          <Ionicons name="location" size={20} color={IOS.blue} />
-        )}
-      </View>
-      <View style={styles.content}>
+    <Pressable accessibilityRole="button" accessibilityLabel={school.name} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View style={styles.top}>
         <Text style={styles.name} numberOfLines={1}>
           {school.name}
         </Text>
-        <View style={styles.session}>
-          <NextSession sessions={school.todaySessions} now={now} />
-        </View>
-        {!!subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitle}
+        {distance && (
+          <Text style={styles.distance}>
+            {distance.value}
+            <Text style={styles.unit}> {distance.unit}</Text>
           </Text>
         )}
       </View>
-      {distanceMiles != null && (
-        <View style={styles.distance}>
-          <Text style={styles.distanceText}>{formatDistance(distanceMiles)}</Text>
-        </View>
+      <SessionLine state={state} />
+      {!!subtitle && (
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
       )}
+      <View style={styles.bottom}>
+        {left > 0 && <RankBar stripes={left} />}
+        <View style={styles.grow}>{left > 0 && <Label>{`${left} left today`}</Label>}</View>
+        {visitChip(school)}
+      </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: IOS.fill, borderRadius: 12, padding: 12, marginBottom: 8 },
-  cardPressed: { backgroundColor: IOS.fillPressed },
-  icon: { width: 40, height: 40, borderRadius: 10, backgroundColor: IOS.blueTint, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  logo: { width: 40, height: 40 },
-  content: { flex: 1, marginLeft: 12 },
-  name: { fontSize: 16, fontWeight: '500', color: IOS.label },
-  session: { marginTop: 3 },
-  subtitle: { fontSize: 13, color: IOS.secondaryLabel, marginTop: 2 },
-  distance: { marginLeft: 8 },
-  distanceText: { fontSize: 13, fontWeight: '500', color: IOS.blue },
-});
+const useStyles = makeStyles((t) => ({
+  card: {
+    gap: 6,
+    padding: 14,
+    borderRadius: t.radii.card,
+    backgroundColor: t.colors.surface,
+    borderWidth: 1,
+    borderColor: t.colors.surfaceBorder,
+    boxShadow: `0 1px 2px ${t.colors.cardShadow}`,
+  },
+  pressed: { opacity: 0.85 },
+  top: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  name: { ...t.type.label, letterSpacing: 0, flex: 1, minWidth: 0, fontSize: 22, lineHeight: 24, color: t.colors.text },
+  distance: { fontFamily: t.fonts.heavy, fontSize: 24, lineHeight: 26, color: t.colors.text },
+  unit: { ...t.type.label, fontSize: 13, color: t.colors.textSecondary },
+  subtitle: { ...t.type.body, fontSize: 14, color: t.colors.textSecondary },
+  bottom: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  grow: { flex: 1 },
+}));

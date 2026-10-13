@@ -2,7 +2,7 @@
  * The spec's *Time rules*, the app's copy. "Now" is always the city's local time, never the device's time zone,
  * so "Training today" and the next session are right for someone planning from another time zone.
  */
-import type { ClassType, Session, Weekday } from './api/schools';
+import type { ClassType, Session, Style, Weekday } from './api/schools';
 
 export type CityNow = { localDate: string; weekday: Weekday; minutes: number };
 
@@ -55,6 +55,10 @@ const CLASS_TYPE_LABELS: Record<ClassType, string> = {
 };
 
 export const classTypeLabel = (t: ClassType) => CLASS_TYPE_LABELS[t] ?? t;
+
+const STYLE_LABELS: Record<Style, string> = { gi: 'Gi', nogi: 'No-Gi', both: 'Gi & No-Gi' };
+
+export const styleLabel = (s: Style) => STYLE_LABELS[s] ?? s;
 
 /** `19:00` → `7:00 pm`. */
 export function formatTime(hhmm: string): string {
