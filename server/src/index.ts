@@ -1,6 +1,7 @@
 import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
 import { backfillUserRoles, seedPermissions } from './lib/permissions';
+import { registerMcp } from './mcp';
 
 /**
  * `unique: true` in a schema is validation-layer only, and Document Service writes bypass it, so slugs get real
@@ -17,8 +18,9 @@ const UNIQUE_INDEXES = [
 ];
 
 export default {
-  register({ strapi }: { strapi: Core.Strapi }) {
+  async register({ strapi }: { strapi: Core.Strapi }) {
     registerDocumentMiddlewares(strapi);
+    await registerMcp(strapi);
   },
 
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {

@@ -6,10 +6,12 @@
 import { factories } from '@strapi/strapi';
 import type { Core } from '@strapi/strapi';
 import session from '../../../components/schedule/session.json';
-import { textToBlocks } from '../../../lib/blocks';
+import { blocksToText, textToBlocks } from '../../../lib/blocks';
 import { draftStatus, pendingDrafts, type DraftStatus, type PendingDraft } from '../../../lib/drafts';
 import { isUniqueViolation, ToolError } from '../../../lib/errors';
+import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
 import { slugifyWithFallback } from '../../../lib/slugify';
+import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
 
 const SCHOOL = 'api::school.school';
@@ -113,34 +115,43 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     }
   }
 
-  async function statusOf(uid: string, documentId: string): Promise<DraftStatus> {
-    const draft = await docs(uid).findOne({ documentId, status: 'draft', fields: ['updatedAt'] });
-    const published = await docs(uid).findOne({ documentId, status: 'published', fields: ['updatedAt'] });
-    return draftStatus(draft, published);
-  }
-
   async function bySlugOrThrow(uid: string, slug: string, what: string) {
     const doc = await docs(uid).findFirst({ filters: { slug }, status: uid === CITY ? undefined : 'draft', fields: ['slug'] });
     if (!doc) throw new ToolError('NOT_FOUND', `No ${what} with slug "${slug}"`, { type: what, slug });
     return doc;
   }
 
-  /** Coordinates from the input, or from geocoding the address. Geocoding is wired in M5 (src/lib/geocode.ts). */
-  async function resolveCoordinates(input: UpsertSchoolInput): Promise<{ latitude: number; longitude: number }> {
+  /**
+   * An address without coordinates is geocoded with Mapbox, biased to the school's city center (the agent is never
+   * trusted to invent coordinates). Runs before the transaction so a network call never holds one open.
+   */
+  async function geocodeIfNeeded(input: UpsertSchoolInput): Promise<MapBoxValue | undefined> {
+    if (!input.address || input.latitude !== undefined || input.longitude !== undefined) return undefined;
+    const citySlug =
+      input.citySlug ||
+      (input.slug
+        ? (await docs(SCHOOL).findFirst({ filters: { slug: input.slug }, status: 'draft', populate: { city: { fields: ['slug'] } } }))?.city?.slug
+        : undefined);
+    const city = citySlug ? await docs(CITY).findFirst({ filters: { slug: citySlug }, fields: ['center'] }) : null;
+    return geocodeAddress(input.address, city?.center);
+  }
+
+  /** The `map-box` location from the given coordinates, or the geocoded address. */
+  function resolveLocation(input: UpsertSchoolInput, before: MapBoxValue | undefined, geocoded: MapBoxValue | undefined): MapBoxValue {
     const hasLat = input.latitude !== undefined;
     const hasLng = input.longitude !== undefined;
     if (hasLat !== hasLng) throw invalid('send latitude and longitude together', [hasLat ? 'longitude' : 'latitude']);
     if (hasLat) {
       if (!(Math.abs(input.latitude!) <= 90)) throw invalid('must be between -90 and 90', ['latitude']);
       if (!(Math.abs(input.longitude!) <= 180)) throw invalid('must be between -180 and 180', ['longitude']);
-      return { latitude: input.latitude!, longitude: input.longitude! };
+      const address = input.address ?? before?.address ?? '';
+      return { longitude: input.longitude!, latitude: input.latitude!, address, zoom: before?.zoom ?? 15, pitch: before?.pitch ?? 0, bearing: before?.bearing ?? 0 };
     }
-    throw new ToolError('GEOCODE_FAILED', 'Geocoding is not available yet; send latitude and longitude with the address', {
-      address: input.address,
-    });
+    if (!geocoded) throw invalid('send an address (the server geocodes it) or latitude and longitude', ['address']);
+    return geocoded;
   }
 
-  async function upsertOnce(input: UpsertSchoolInput): Promise<UpsertSchoolResult> {
+  async function upsertOnce(input: UpsertSchoolInput, geocoded: MapBoxValue | undefined): Promise<UpsertSchoolResult> {
     const slug = input.slug ?? (input.name ? slugifyWithFallback(input.name, 'school') : undefined);
     if (!slug) throw invalid('send the slug of an existing school, or a name to create one', ['name']);
 
@@ -177,16 +188,13 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     if (input.descriptionText !== undefined) {
       write('description', input.descriptionText ? textToBlocks(input.descriptionText) : null, existing?.description);
     }
-    if (input.address !== undefined || input.latitude !== undefined || input.longitude !== undefined) {
-      const { latitude, longitude } = await resolveCoordinates(input);
-      const before = existing?.location;
-      const address = input.address ?? before?.address ?? '';
-      write('location', { longitude, latitude, address, zoom: before?.zoom ?? 15, pitch: before?.pitch ?? 0, bearing: before?.bearing ?? 0 }, before);
-    }
     if (input.citySlug !== undefined) {
       if (!input.citySlug) throw invalid('a school needs a city', ['citySlug']);
       const city = await bySlugOrThrow(CITY, input.citySlug, 'city');
       write('city', city.documentId, existing?.city?.documentId);
+    }
+    if (input.address !== undefined || input.latitude !== undefined || input.longitude !== undefined) {
+      write('location', resolveLocation(input, existing?.location, geocoded), existing?.location);
     }
     if (input.affiliationSlug !== undefined) {
       const affiliation = input.affiliationSlug ? await bySlugOrThrow(AFFILIATION, input.affiliationSlug, 'affiliation') : null;
@@ -213,7 +221,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       slug: doc.slug,
       created: !existing,
       changedFields,
-      status: await statusOf(SCHOOL, doc.documentId),
+      status: await statusOf(strapi, SCHOOL, doc.documentId),
     };
   }
 
@@ -347,7 +355,8 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
      * concurrent create wins the slug, the retry finds that document by slug and updates it instead.
      */
     async upsertDraft(input: UpsertSchoolInput): Promise<UpsertSchoolResult> {
-      const run = () => strapi.db.transaction(() => upsertOnce(input));
+      const geocoded = await geocodeIfNeeded(input);
+      const run = () => strapi.db.transaction(() => upsertOnce(input, geocoded));
       try {
         return await run();
       } catch (e) {
@@ -388,6 +397,127 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         .flat()
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .slice(0, limit);
+    },
+
+    /** Cities, affiliations and instructors as names and slugs (the `list_reference_data` tool). Drafts included. */
+    async referenceData() {
+      const [cities, affiliations, instructors] = await Promise.all([
+        docs(CITY).findMany({ fields: ['slug', 'name'], sort: 'name:asc', limit: 1000 }),
+        docs(AFFILIATION).findMany({ status: 'draft', fields: ['slug', 'name'], sort: 'name:asc', limit: 1000 }),
+        docs(INSTRUCTOR).findMany({ status: 'draft', fields: ['slug', 'name', 'beltRank'], sort: 'name:asc', limit: 1000 }),
+      ]);
+      return {
+        cities: cities.map((c: any) => ({ slug: c.slug, name: c.name })),
+        affiliations: affiliations.map((a: any) => ({ slug: a.slug, name: a.name })),
+        instructors: instructors.map((i: any) => ({ slug: i.slug, name: i.name, beltRank: i.beltRank })),
+      };
+    },
+
+    /** Search school drafts with their publish status (the `find_schools` tool). */
+    async findSchools(opts: {
+      search?: string;
+      city?: string;
+      status?: 'any' | DraftStatus;
+      staleDays?: number;
+      page?: number;
+      limit?: number;
+    }) {
+      const page = Math.max(1, Math.trunc(opts.page ?? 1));
+      const limit = Math.min(Math.max(Math.trunc(opts.limit ?? 20), 1), 50);
+      const and: Record<string, unknown>[] = [];
+      if (opts.search) {
+        const q = { $containsi: opts.search };
+        and.push({ $or: [{ name: q }, { neighborhood: q }, { postalCode: q }] });
+      }
+      if (opts.city) and.push({ city: { slug: opts.city } });
+      if (opts.staleDays !== undefined) {
+        const cutoff = new Date(Date.now() - opts.staleDays * 86_400_000).toISOString().slice(0, 10);
+        and.push({ $or: [{ lastVerifiedAt: { $null: true } }, { lastVerifiedAt: { $lt: cutoff } }] });
+      }
+      const drafts: any[] = [];
+      for (let start = 0; ; start += 500) {
+        const rows = await docs(SCHOOL).findMany({
+          status: 'draft',
+          filters: and.length ? { $and: and } : {},
+          fields: ['slug', 'name', 'neighborhood', 'updatedAt', 'lastVerifiedAt'],
+          populate: { city: { fields: ['slug', 'name'] }, affiliation: { fields: ['slug', 'name'] } },
+          sort: 'name:asc',
+          limit: 500,
+          start,
+        });
+        drafts.push(...rows);
+        if (rows.length < 500) break;
+      }
+      const ids = drafts.map((d) => d.documentId);
+      const published: any[] = ids.length
+        ? await docs(SCHOOL).findMany({ status: 'published', filters: { documentId: { $in: ids } }, fields: ['updatedAt'], limit: ids.length })
+        : [];
+      const pub = new Map(published.map((p) => [p.documentId, p]));
+      const rows = drafts
+        .map((d) => ({
+          documentId: d.documentId,
+          slug: d.slug,
+          name: d.name,
+          neighborhood: d.neighborhood ?? null,
+          city: d.city ? { slug: d.city.slug, name: d.city.name } : null,
+          affiliation: d.affiliation ? { slug: d.affiliation.slug, name: d.affiliation.name } : null,
+          status: draftStatus(d, pub.get(d.documentId)),
+          updatedAt: new Date(d.updatedAt).toISOString(),
+          lastVerifiedAt: d.lastVerifiedAt ?? null,
+        }))
+        .filter((r) => !opts.status || opts.status === 'any' || r.status === opts.status);
+      return {
+        items: rows.slice((page - 1) * limit, page * limit),
+        page,
+        limit,
+        total: rows.length,
+        hasMore: page * limit < rows.length,
+      };
+    },
+
+    /** The DRAFT version of a school, relations as names and slugs (the `get_school` tool). */
+    async getDraft(slug: string, excerptChars = 600) {
+      const s = await docs(SCHOOL).findFirst({
+        filters: { slug },
+        status: 'draft',
+        populate: {
+          city: { fields: ['slug', 'name'] },
+          affiliation: { fields: ['slug', 'name'] },
+          headInstructors: { fields: ['slug', 'name', 'beltRank'] },
+          pricing: true,
+          contact: true,
+          amenities: true,
+          schedule: true,
+        },
+      });
+      if (!s) throw new ToolError('NOT_FOUND', `No school with slug "${slug}"`, { type: 'school', slug });
+      const text = blocksToText(s.description);
+      const truncated = text.length > excerptChars;
+      const dayIndex = (d: string) => WEEKDAYS.indexOf(d as Weekday);
+      const pricing = s.pricing ? withoutIds(s.pricing) : null;
+      return {
+        documentId: s.documentId,
+        slug: s.slug,
+        name: s.name,
+        status: await statusOf(strapi, SCHOOL, s.documentId),
+        shortDescription: s.shortDescription ?? null,
+        descriptionText: truncated ? `${text.slice(0, excerptChars)}…` : text,
+        descriptionTruncated: truncated,
+        city: s.city ? { slug: s.city.slug, name: s.city.name } : null,
+        location: s.location ? { address: s.location.address ?? '', latitude: s.location.latitude, longitude: s.location.longitude } : null,
+        neighborhood: s.neighborhood ?? null,
+        postalCode: s.postalCode ?? null,
+        affiliation: s.affiliation ? { slug: s.affiliation.slug, name: s.affiliation.name } : null,
+        headInstructors: (s.headInstructors ?? []).map((i: any) => ({ slug: i.slug, name: i.name, beltRank: i.beltRank })),
+        pricing: pricing && { ...pricing, dropInFee: num(pricing.dropInFee), monthlyMin: num(pricing.monthlyMin), monthlyMax: num(pricing.monthlyMax) },
+        contact: s.contact ? withoutIds(s.contact) : null,
+        amenities: s.amenities ? withoutIds(s.amenities) : null,
+        schedule: [...(s.schedule ?? [])]
+          .sort((a: Session, b: Session) => dayIndex(a.day) - dayIndex(b.day) || toMinutes(a.startTime)! - toMinutes(b.startTime)!)
+          .map((x: Session) => ({ day: x.day, start: toHHmm(x.startTime), end: toHHmm(x.endTime), classType: x.classType, style: x.style, notes: x.notes ?? null })),
+        lastVerifiedAt: s.lastVerifiedAt ?? null,
+        updatedAt: new Date(s.updatedAt).toISOString(),
+      };
     },
   };
 });
