@@ -1,18 +1,17 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "MatFinder",
+    "slug": "matfinder",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "scheme": "matfinder",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.mobile",
+      "bundleIdentifier": "com.matfinder.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location to show nearby saved places."
+        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location to show the Jiu-Jitsu schools near you."
       }
     },
     "android": {
@@ -22,11 +21,11 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.matfinder.app"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -47,9 +46,14 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to show nearby saved places."
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to show the Jiu-Jitsu schools near you."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-web-browser",
+      "expo-status-bar",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
