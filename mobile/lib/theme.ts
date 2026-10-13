@@ -6,13 +6,13 @@ type Theme = typeof DefaultTheme;
 /** Mirrors global.css, for places that need raw colors (navigation, map layers). */
 export const THEME = {
   light: {
-    background: 'hsl(0 0% 100%)',
-    foreground: 'hsl(222 20% 10%)',
-    card: 'hsl(0 0% 100%)',
-    primary: 'hsl(216 78% 45%)',
-    mutedForeground: 'hsl(220 9% 42%)',
-    destructive: 'hsl(0 72% 50%)',
-    border: 'hsl(220 13% 88%)',
+    background: '#FFFFFF',
+    foreground: '#000000',
+    card: '#FFFFFF',
+    primary: '#007AFF',
+    mutedForeground: '#8E8E93',
+    destructive: '#FF3B30',
+    border: '#E5E5EA',
   },
   dark: {
     background: 'hsl(222 18% 7%)',

@@ -21,11 +21,10 @@ const listNames = async (page: Page) =>
 test('explore → filters → preview → View school → sign up → full school page → sign out re-gates it', async ({ page, request }) => {
   const directory: { schools: DirectorySchool[] } = (await (await request.get(`${API_URL}/api/schools/directory?city=las-vegas`)).json()).data;
 
-  // The app opens on the directory (the map, or the list when no Mapbox token is configured).
+  // The app opens on the map with the bottom sheet (the sheet alone when no Mapbox token is configured).
   await page.goto('/');
-  await expect(page.getByText(/^\d+ of \d+ schools in Las Vegas$/)).toBeVisible();
-  const listToggle = page.getByRole('button', { name: 'List', exact: true });
-  if (await listToggle.isVisible()) await listToggle.click();
+  await expect(page.getByText('Schools in Las Vegas')).toBeVisible();
+  await expect(page.getByText(`${directory.schools.length} of ${directory.schools.length}`, { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Sample .*\(Demo\)$/ })).toHaveCount(directory.schools.length);
 
   // "Training today" + "Visitors welcome", checked against the API and Las Vegas time.
@@ -46,7 +45,7 @@ test('explore → filters → preview → View school → sign up → full schoo
   const target = (expected.length ? expected : directory.schools.filter((s) => s.visitorsWelcome && s.todaySessions.length))[0];
   expect(target).toBeTruthy();
 
-  // List item → preview card → View school.
+  // School card → preview in the sheet → View school.
   await page.getByRole('button', { name: target.name, exact: true }).click();
   const card = page.locator(`[aria-label="${target.name} preview"]`);
   await expect(card).toBeVisible();

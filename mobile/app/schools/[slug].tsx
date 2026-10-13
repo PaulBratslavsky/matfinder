@@ -7,7 +7,7 @@ import { Description } from '@/components/school/Description';
 import { DirectionsButton } from '@/components/school/DirectionsButton';
 import { Gallery } from '@/components/school/Gallery';
 import { InstructorList } from '@/components/school/InstructorList';
-import LocationMap from '@/components/school/LocationMap';
+import { LocationMap } from '@/components/LocationMap';
 import { PricingCard } from '@/components/school/PricingCard';
 import { ProgramChips } from '@/components/school/ProgramChips';
 import { ScheduleTable } from '@/components/school/ScheduleTable';
@@ -19,6 +19,7 @@ import { useCityNow } from '@/hooks/useCityNow';
 import { useSchool } from '@/hooks/useSchool';
 import { useSession } from '@/hooks/useSession';
 import { ApiError, AuthRequiredError } from '@/lib/api/client';
+import { hasMapboxToken } from '@/lib/mapbox';
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <View className="flex-1 items-center justify-center gap-4 bg-background p-6">{children}</View>;
@@ -88,7 +89,11 @@ export default function SchoolScreen() {
         </Section>
         {!!s.location && (
           <Section title="Location">
-            <LocationMap latitude={s.location.latitude} longitude={s.location.longitude} />
+            {hasMapboxToken && (
+              <View className="h-48 overflow-hidden rounded-xl">
+                <LocationMap location={{ longitude: s.location.longitude, latitude: s.location.latitude, zoom: 14, pitch: 0, bearing: 0 }} showMarker />
+              </View>
+            )}
             {!!s.location.address && <Text>{s.location.address}</Text>}
             <View className="flex-row">
               <DirectionsButton latitude={s.location.latitude} longitude={s.location.longitude} name={s.name} />
