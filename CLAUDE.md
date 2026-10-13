@@ -8,7 +8,7 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
 ## Status (2026-09-30)
-M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model) and M3 (#6, Better Auth) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, the user's OK on M3's `jwt()` + `dash()` addition, and Strapi Cloud. The next issue is **#7 · M4 School API**, stacked on M3.
+M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth) and M4 (#7, school API) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, the user's OK on M3's `jwt()` + `dash()` addition, and Strapi Cloud. The next issues are **#8 · M5 MCP** (backend track) and **#9 · M6 Expo app** (app track); both stack on M4. M5 also wires geocoding into `upsertDraft` (it returns `GEOCODE_FAILED` until then).
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
