@@ -8,7 +8,7 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
 ## Status (2026-09-30)
-M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools), M8 (#11, sample seed), M6 (#9, Expo app) and M7 (#10, auth UI) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field and the new types, the user's OK on M3's `jwt()` + `dash()` addition, and Strapi Cloud. Next: **#12 · M9 tests + deploy** (stacks on M7). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
+M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools), M8 (#11, sample seed), M6 (#9, Expo app), M7 (#10, auth UI) and M9 (#12, tests + Vercel config) are open as stacked draft PRs. They wait on an admin login to check the map field and the new types, and Strapi Cloud. Every milestone's code is written; what's left is on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR lists the steps). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
@@ -17,6 +17,10 @@ M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M
 2. Read the **whole** issue before writing code. Each one is self-contained: commands, schemas, traps, "Verify during this step", and "Done when".
 3. Branch `m<n>-<slug>` (e.g. `m0-housekeeping`), commit, open a PR into `main` whose body says `Closes #<issue>`. Merge only when every Done-when box passes.
 4. After M4 the build splits into two tracks that can run in parallel on separate branches: backend (M5 → M8) and app (M6 → M7). M9 comes last.
+
+## Tests
+- `server/`: `npm run test:unit` (Vitest) and `npm run test:integration:isolated` (a throwaway seeded Strapi on :1342 via `scripts/test-server.sh`, `strapi start` so MCP lists exactly 8 tools). Stop `npm run develop` first: the test server builds into the same `dist/`.
+- `mobile/`: `npm run test:unit` (Vitest, `lib/*.test.ts`), `npm run test:e2e` (Playwright; starts the same test Strapi and serves the exported build on :8084 with `/api` proxied, like Vercel), `npm run typecheck` (app + e2e/vercel.ts). Playwright needs its browser: `npx playwright install chromium` once, or point `PLAYWRIGHT_CHROMIUM_PATH` at an installed Chromium.
 
 ## Rules from the user (requirements, not preferences)
 - **Never commit to `main`.** A repo hook blocks it: branch → PR → merge.
@@ -28,9 +32,10 @@ M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M
 - **Secrets stay out of chat, issues and commits.** The user adds tokens (e.g. `MAPBOX_ACCESS_TOKEN`) to `server/.env` themselves.
 
 ## Local quirks
-- **Ports:** MatFinder uses Strapi **1339** and Expo **8083** (the defaults in `.env.example`, `config/server.ts` and the `mobile` scripts). Other projects on this machine use these, so don't take them: 1337/1338 (other Strapi projects), 1340/8081 (MatBuddy), 1341/8082 (MatBuddy tests), 3000. GitHub issues written before 2026-09-30 still say 1337/8081; read those as 1339/8083.
+- **Ports:** MatFinder uses Strapi **1339** and Expo **8083** (the defaults in `.env.example`, `config/server.ts` and the `mobile` scripts); its test suites use **1342** (throwaway Strapi) and **8084** (e2e web build). Other projects on this machine use these, so don't take them: 1337/1338 (other Strapi projects), 1340/8081 (MatBuddy), 1341/8082 (MatBuddy tests), 3000. GitHub issues written before 2026-09-30 still say 1337/8081; read those as 1339/8083.
 - **Open the admin at `http://matfinder.localhost:1339/admin`.** Browsers share cookies across ports on one hostname, and every Strapi admin uses the same cookie names (`jwtToken`, `strapi_admin_refresh`). On `localhost` a login to another project's admin overwrites MatFinder's, which causes a login loop. `*.localhost` resolves to this machine with no setup.
 - Better Auth boots fine on SQLite here (checked in M3). New users get the Authenticated role from a Document Service middleware (the plugin assigns none, and api-permissions treats a user without roles as Public).
+- **Confirmed by the user (2026-10-01):** M3 keeps Better Auth's `jwt()` + `dash()` plugins (the admin auth dashboard needs them); M5's tool rename below; M6's map centers on the device only within 60 miles of the city (otherwise the city center), instead of AC1's "always the device".
 - **MCP:** the school-reading tool is `get_school_draft`, not the spec's `get_school` (Strapi's content manager registers a generic `get_school` and refuses to start on a name clash). Admin action uids use hyphens (`api::matfinder-mcp.upsert-school`). Under `strapi develop` `tools/list` also shows Strapi's dev-only `log` tool; `strapi start` shows exactly the 8. Tool schemas use `z` from `@strapi/utils` (zod 4.4 in Strapi 5.56).
 - **App (Expo SDK 57):** expo-router no longer works with `@react-navigation/*` imports (SDK 56+); take `ThemeProvider`, `DefaultTheme` etc. from `expo-router`. `mobile/package.json` overrides `@rnmapbox/maps`'s optional `mapbox-gl ^2` peer so the web map gets mapbox-gl 3 (what `react-map-gl/mapbox` needs). Run the web app with `npm run web` in `mobile/` (port 8083) against Strapi on 1339; without `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` it shows the list. Auth: `lib/auth-client.native.ts` / `.web.ts` (Metro picks one; `lib/auth-client.ts` only re-exports the web one for `tsc`). Better Auth rejects a relative `baseURL`, so the web client prepends `window.location.origin` when `EXPO_PUBLIC_WEB_API_BASE` is empty (production).
 - `npx @better-auth/cli generate` is deprecated on npm but still works; it says "already up to date" even when it writes files, so check `git status`.

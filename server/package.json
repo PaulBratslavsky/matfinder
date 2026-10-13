@@ -12,7 +12,12 @@
     "start": "strapi start",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
-    "upgrade:dry": "npx @strapi/upgrade latest --dry"
+    "upgrade:dry": "npx @strapi/upgrade latest --dry",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:integration:isolated": "scripts/test-server.sh start && ALLOW_ADMIN_BOOTSTRAP=1 API_URL=http://localhost:1342 vitest run --config vitest.integration.config.mts; code=$?; scripts/test-server.sh stop; exit $code",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.7",
@@ -33,10 +38,11 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^24.19.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   },
   "engines": {
     "node": ">=20.0.0 <=24.x.x",
