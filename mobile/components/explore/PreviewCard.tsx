@@ -1,4 +1,4 @@
-import { Link, type Href } from 'expo-router';
+import { Link } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { Platform, Pressable, View } from 'react-native';
 import { Button } from '@/components/ui/button';
@@ -48,8 +48,7 @@ export function PreviewCard({
       </View>
       <NextSession sessions={school.todaySessions} now={now} />
       <SchoolBadges school={school} />
-      {/* The account-only school page (app/schools/[slug].tsx) arrives with the auth UI in M7. */}
-      <Link href={`/schools/${school.slug}` as Href} asChild>
+      <Link href={{ pathname: '/schools/[slug]', params: { slug: school.slug } }} asChild>
         <Button>
           <Text>View school</Text>
         </Button>

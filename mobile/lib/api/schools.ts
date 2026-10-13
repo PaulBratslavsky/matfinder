@@ -44,7 +44,57 @@ export async function getDirectory(citySlug: string): Promise<Directory> {
   return (await apiGet<{ data: Directory }>('/api/schools/directory', { city: citySlug })).data;
 }
 
-/** The full school page; needs an account (the auth client and the screen arrive in M7). */
+/** The full school page; needs an account (401/403 → AuthRequiredError otherwise). */
 export async function getSchoolBySlug<T = unknown>(slug: string): Promise<T> {
   return (await apiGet<{ data: T }>(`/api/schools/slug/${encodeURIComponent(slug)}`)).data;
 }
+
+export type Media = {
+  url: string;
+  alternativeText: string | null;
+  width: number | null;
+  height: number | null;
+  formats: Record<string, { url: string; width: number; height: number }> | null;
+};
+
+export type BeltRank = 'white' | 'blue' | 'purple' | 'brown' | 'black' | 'red_black' | 'red_white' | 'red';
+
+/** Strapi `blocks` rich text (the subset the school page renders). */
+export type BlockNode = { type: string; children?: BlockNode[]; text?: string; url?: string; level?: number; format?: string; [mark: string]: unknown };
+
+export type AmenityKey = 'showers' | 'changingRooms' | 'parking' | 'giRental' | 'proShop' | 'kidsArea' | 'airConditioning';
+
+/** The full, account-only school page (GET /api/schools/slug/:slug). */
+export type SchoolPage = {
+  documentId: string;
+  slug: string;
+  name: string;
+  shortDescription: string | null;
+  description: BlockNode[] | null;
+  city: { slug: string; name: string; timezone: string } | null;
+  location: { longitude: number; latitude: number; address: string; zoom: number } | null;
+  neighborhood: string | null;
+  postalCode: string | null;
+  logo: Media | null;
+  gallery: Media[];
+  affiliation: { name: string; slug: string; website: string | null; logo: Media | null } | null;
+  headInstructors: { name: string; slug: string; beltRank: BeltRank; degree: number | null; photo: Media | null; bio: string | null }[];
+  pricing: {
+    visitorsWelcome: boolean;
+    dropInFee: number | null;
+    dropInNotes: string | null;
+    freeTrial: boolean;
+    freeTrialNotes: string | null;
+    monthlyMin: number | null;
+    monthlyMax: number | null;
+    currency: string;
+  } | null;
+  contact: { phone: string | null; email: string | null; website: string | null; instagram: string | null } | null;
+  amenities: Record<AmenityKey, boolean> | null;
+  schedule: (Session & { day: Weekday; notes: string | null })[];
+  styles: ('gi' | 'nogi')[];
+  programs: ClassType[];
+  todaySessions: Session[];
+  nextSessionToday: (Session & { onNow: boolean }) | null;
+  lastVerifiedAt: string | null;
+};
