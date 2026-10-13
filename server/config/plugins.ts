@@ -3,6 +3,11 @@ export default ({ env }) => {
   const localMapBoxPath = env('MAP_BOX_PLUGIN_PATH');
 
   return {
+    // End-user auth: Better Auth (config in src/lib/auth.ts). Users & Permissions is uninstalled.
+    'better-auth': { enabled: true },
+    'better-auth-dashboard': { enabled: true },
+    // Content-API roles and permissions (Public, Authenticated), seeded in bootstrap().
+    'api-permissions': { enabled: true },
     'map-box': {
       enabled: true,
       ...(localMapBoxPath ? { resolve: localMapBoxPath } : {}),

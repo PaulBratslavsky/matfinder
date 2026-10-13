@@ -1,5 +1,6 @@
 import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
+import { backfillUserRoles, seedPermissions } from './lib/permissions';
 
 /**
  * `unique: true` in a schema is validation-layer only, and Document Service writes bypass it, so slugs get real
@@ -11,6 +12,8 @@ const UNIQUE_INDEXES = [
   `CREATE UNIQUE INDEX IF NOT EXISTS instructors_slug_draft_uq ON instructors (slug) WHERE published_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS affiliations_slug_draft_uq ON affiliations (slug) WHERE published_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS cities_slug_uq ON cities (slug)`,
+  // Better Auth checks for an existing email and then inserts; the index closes the race between two sign-ups.
+  `CREATE UNIQUE INDEX IF NOT EXISTS ba_user_email_uq ON ba_user (email)`,
 ];
 
 export default {
@@ -26,5 +29,7 @@ export default {
         strapi.log.error(`[matfinder] index failed: ${sql}`, e);
       }
     }
+    await seedPermissions(strapi);
+    await backfillUserRoles(strapi);
   },
 };
