@@ -23,7 +23,8 @@ export function SignInForm({ redirect }: { redirect: string }) {
     const { error: err } = await authClient.signIn.email({ email: email.trim(), password });
     setSubmitting(false);
     if (err) return setError(err.message ?? 'Sign in failed. Check your email and password.');
-    router.replace(redirect as never);
+    // Back to where the user came from if it's still in the stack (e.g. Account), else replace this screen.
+    router.dismissTo(redirect as never);
   }
 
   return (

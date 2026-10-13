@@ -20,8 +20,13 @@ export function useDirectory(citySlug: string = DEFAULT_CITY) {
   const now = useCityNow(query.data?.city.timezone);
   const { refetch } = query;
   const stale = !!query.data && !!now && now.localDate !== query.data.localDate;
+  // After midnight, refetch until the server's date catches up: the first refetch can still get yesterday's list
+  // from an HTTP cache (Cache-Control max-age=60).
   useEffect(() => {
-    if (stale) refetch();
+    if (!stale) return;
+    refetch();
+    const id = setInterval(() => refetch(), 60_000);
+    return () => clearInterval(id);
   }, [stale, refetch]);
   return { ...query, now };
 }

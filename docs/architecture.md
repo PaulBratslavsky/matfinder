@@ -349,7 +349,7 @@ flowchart LR
 
 - **Web (Vercel):** root directory `mobile`, config in `mobile/vercel.ts` (`@vercel/config`): build `npx expo export -p web`, output `dist`, then the `/api` rewrite and the SPA fallback, in that order. `STRAPI_ORIGIN` is a Vercel-only env var; `EXPO_PUBLIC_WEB_API_BASE` is empty in production.
 - **Backend (Strapi Cloud):** Node 24, Postgres injected by Strapi Cloud. Set `BETTER_AUTH_URL` (bare origin), `BETTER_AUTH_SECRET`, `BETTER_AUTH_DASHBOARD_SECRET`, `WEB_ORIGINS` (CORS and trusted origins), `MAPBOX_ACCESS_TOKEN` (admin map field) and `MAPBOX_GEOCODING_TOKEN` (server-only). Never set `SEED_SAMPLE_DATA` there.
-- **Native builds** need `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` (an `sk.` token with Downloads:Read, build time only) and a rebuild whenever `app.json` changes.
+- **Native builds** need `EXPO_PUBLIC_STRAPI_URL` and `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`, and a rebuild whenever `app.json` changes. `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` is optional: @rnmapbox/maps 10.3 no longer needs a secret download token.
 - The remaining deploy steps (Strapi Cloud project, Vercel project, production smoke test, real listings) are listed in M9's PR (#26).
 
 ## 13. Testing

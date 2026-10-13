@@ -45,7 +45,7 @@ export default function ExploreScreen() {
   const window = useWindowDimensions();
   const wide = window.width >= WIDE;
 
-  const { data, now, isPending, isError, error, refetch, isFetching } = useDirectory();
+  const { data, now, isPending, error, refetch, isFetching } = useDirectory();
   const user = useUserLocation();
 
   const setFilters = useCallback((f: Filters) => router.setParams(filtersToParams(f)), []);
@@ -94,22 +94,29 @@ export default function ExploreScreen() {
   }, [data, nearCity, user.location]);
 
   // Where the map looks: the selected gym; else the device (near the city, no filters); else every listed gym.
-  // The map moves only when `key` changes, so a refreshed list with the same gyms leaves it where the user put it.
+  // The map moves only when `key` changes. The fit key comes from the filters, not the list: with "Training today"
+  // on, the list shrinks as classes end, and the map must not re-fit (and undo the user's pan) each time.
+  const filtersKey = `${filters.q.trim()}|${filters.today}|${filters.visitors}|${filters.style ?? ''}`;
   const camera: MapCamera | undefined = useMemo(() => {
     if (!data || !location) return undefined;
     if (selected) return { key: `gym:${selected.slug}`, center: { longitude: selected.longitude, latitude: selected.latitude }, zoom: 14 };
     if (nearCity && !hasActiveFilters(filters)) return { key: `near:${location.latitude},${location.longitude}`, center: location, zoom: data.city.defaultZoom };
-    if (!items.length) return { key: 'city', center: data.city.center, zoom: data.city.defaultZoom };
+    if (!items.length) return { key: `city:${filtersKey}`, center: data.city.center, zoom: data.city.defaultZoom };
     const lngs = items.map((i) => i.school.longitude);
     const lats = items.map((i) => i.school.latitude);
+    const [west, south, east, north] = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+    // One gym, or a few on the same block: center at street level instead of fitting a box that's almost a point.
+    if (east - west < 0.005 && north - south < 0.005) {
+      return { key: `fit:${filtersKey}`, center: { longitude: (west + east) / 2, latitude: (south + north) / 2 }, zoom: 14 };
+    }
     return {
-      key: `fit:${items.map((i) => i.school.slug).join(',')}`,
+      key: `fit:${filtersKey}`,
       bounds: [
-        [Math.min(...lngs), Math.min(...lats)],
-        [Math.max(...lngs), Math.max(...lats)],
+        [west, south],
+        [east, north],
       ],
     };
-  }, [data, location, selected, nearCity, filters, items]);
+  }, [data, location, selected, nearCity, filters, filtersKey, items]);
 
   // Keep pins clear of the sheet (or side panel), the map buttons and the zoom card.
   const sheetHeight = Math.round(window.height * layout.sheetFraction);
@@ -135,7 +142,8 @@ export default function ExploreScreen() {
     );
   }
 
-  if (isError || !data || !now || !location) {
+  // A failed background refetch keeps the cached list on screen; the error screen is for having nothing to show.
+  if (!data || !now || !location) {
     return (
       <View style={styles.center}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />

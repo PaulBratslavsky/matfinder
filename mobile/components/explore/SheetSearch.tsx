@@ -15,7 +15,8 @@ export function SheetSearch({ value, onChange }: { value: string; onChange: (q: 
     setText(value);
   }
   useEffect(() => {
-    if (text === value) return;
+    // Compare trimmed: a whitespace-only query drops out of the URL, so `value` stays empty while `text` doesn't.
+    if (text.trim() === value.trim()) return;
     const id = setTimeout(() => onChange(text), 250);
     return () => clearTimeout(id);
   }, [text, value, onChange]);

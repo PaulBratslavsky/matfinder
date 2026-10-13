@@ -14,6 +14,7 @@ import { slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type Weekday } from '../../../lib/time';
 import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
+import { sameJson } from '../../../lib/equal';
 
 // The derived fields (the spec's *Time rules*) and the directory item live in lib/directory.ts, free of Strapi.
 export { deriveStyles, derivePrograms, nextSessionToday, toTodaySessions } from '../../../lib/directory';
@@ -146,7 +147,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     const data: Record<string, unknown> = {};
     const changedFields: string[] = [];
     const write = (field: string, value: unknown, before: unknown) => {
-      if (JSON.stringify(value ?? null) === JSON.stringify(before ?? null)) return;
+      if (sameJson(value, before)) return;
       data[field] = value;
       changedFields.push(field);
     };

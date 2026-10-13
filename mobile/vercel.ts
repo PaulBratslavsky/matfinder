@@ -6,7 +6,10 @@ import { routes, type VercelConfig } from '@vercel/config/v1';
  * third-party-cookie restrictions. Order matters: /api first, then the SPA fallback (static files are served first).
  * STRAPI_ORIGIN is a Vercel-only env var, e.g. https://<project>.strapiapp.com.
  */
-const STRAPI = process.env.STRAPI_ORIGIN!;
+const origin = process.env.STRAPI_ORIGIN;
+// Fail the build rather than ship a deployment whose /api rewrite points at "undefined" (e.g. a Preview env without it).
+if (!origin) throw new Error('STRAPI_ORIGIN is not set for this Vercel environment (e.g. https://<project>.strapiapp.com)');
+const STRAPI = origin.replace(/\/+$/, '');
 
 export const config: VercelConfig = {
   framework: null,

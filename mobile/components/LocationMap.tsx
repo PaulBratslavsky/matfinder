@@ -135,8 +135,6 @@ export type LocationMapProps = {
 };
 
 const NO_PADDING: CameraPadding = { top: 0, right: 0, bottom: 0, left: 0 };
-/** Fitting never zooms in further than this (one school, or a few close together). */
-const FIT_MAX_ZOOM = 14;
 const toCameraPadding = (p: CameraPadding) => ({ paddingTop: p.top, paddingRight: p.right, paddingBottom: p.bottom, paddingLeft: p.left });
 
 /**
@@ -200,11 +198,19 @@ export function LocationMap({
     [],
   );
 
-  // MatFinder: zoom from the map's actual zoom (the camera may have been fitted to bounds).
-  const zoomBy = useCallback(async (delta: number) => {
-    const zoom = (await mapViewRef.current?.getZoom()) ?? 12;
-    cameraRef.current?.zoomTo(Math.min(20, Math.max(1, zoom + delta)), 300);
-  }, []);
+  // MatFinder: zoom from the map's actual zoom (the camera may have been fitted to bounds). setCamera with the padding,
+  // not zoomTo: on iOS a stop without padding resets it to zero and the map jumps under the sheet.
+  const zoomBy = useCallback(
+    async (delta: number) => {
+      const zoom = (await mapViewRef.current?.getZoom()) ?? 12;
+      cameraRef.current?.setCamera({
+        zoomLevel: Math.min(20, Math.max(1, zoom + delta)),
+        padding: toCameraPadding(cameraPadding),
+        animationDuration: 300,
+      });
+    },
+    [cameraPadding],
+  );
   const handleZoomIn = useCallback(() => zoomBy(1), [zoomBy]);
   const handleZoomOut = useCallback(() => zoomBy(-1), [zoomBy]);
 
@@ -346,7 +352,6 @@ export function LocationMap({
             ref={cameraRef}
             bounds={{ sw: activeCamera.bounds[0], ne: activeCamera.bounds[1] }}
             padding={toCameraPadding(cameraPadding)}
-            maxZoomLevel={FIT_MAX_ZOOM}
             animationDuration={800}
           />
         ) : activeCamera ? (
