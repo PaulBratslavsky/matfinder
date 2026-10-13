@@ -7,8 +7,8 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **The work:** GitHub issues. Epic **#2**; milestones **#3 (M0) → #12 (M9)**. `docs/plan/issues/plan.json` maps each milestone to its issue, and `docs/plan/issues/*.md` are the drafts behind them.
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
-## Status (2026-09-29)
-Planning is done; **no build work has started**. The next issue is **#3 · M0 Housekeeping**.
+## Status (2026-09-30)
+M0 (#3) and M1 (#4, Strapi 5.56.0) are open as stacked draft PRs. They wait on `strapi-plugin-map-box@0.0.5` on npm, an admin login to check the map field, and Strapi Cloud. The next issue is **#5 · M2 Content model**, stacked on M1.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
