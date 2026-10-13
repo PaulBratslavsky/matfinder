@@ -25,7 +25,7 @@ export type QueryOptions = {
   locale?: string | string[]
 }
 
-const BASE_URL = process.env.EXPO_PUBLIC_STRAPI_URL || 'http://localhost:1337'
+const BASE_URL = process.env.EXPO_PUBLIC_STRAPI_URL || 'http://localhost:1339'
 
 /**
  * Build URL with Strapi query parameters

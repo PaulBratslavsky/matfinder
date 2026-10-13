@@ -19,9 +19,11 @@
     "@strapi/plugin-users-permissions": "5.33.3",
     "@strapi/strapi": "5.33.3",
     "better-sqlite3": "12.4.1",
+    "pg": "^8.23.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
+    "strapi-plugin-map-box": "^0.0.5",
     "styled-components": "^6.0.0"
   },
   "devDependencies": {
@@ -37,6 +39,5 @@
   "strapi": {
     "uuid": "ee9d704b-4aa1-4722-8df6-c15276463860",
     "installId": "062f25ba0f3482d341021428330fe282e2269d9474f1d9b4f1cc64315f3c435a"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }

@@ -16,15 +16,15 @@ Strapi runs on the latest 5.x (at least **5.49**), the Mapbox location field (mo
 
 | Variable | Example | Notes | When |
 |---|---|---|---|
-| `HOST`, `PORT` | `0.0.0.0`, `1337` | If 1337 is taken locally, change `PORT` and the app's URLs together | now |
+| `HOST`, `PORT` | `0.0.0.0`, `1339` | Local ports are listed in CLAUDE.md | now |
 | `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`, `ENCRYPTION_KEY` | random | Strapi Cloud injects | now |
 | `DATABASE_CLIENT` | `sqlite` (local) · `postgres` (Strapi Cloud) | | now |
 | `DATABASE_FILENAME` | `.tmp/data.db` | local SQLite only; must not be empty | now |
 | `DATABASE_URL` | (production only) | Strapi Cloud injects | now |
 | `MAPBOX_ACCESS_TOKEN` | `pk.…` | admin map field | now |
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | | {{#m3}} |
-| `BETTER_AUTH_URL` | `http://localhost:1337` · `https://<project>.strapiapp.com` | bare origin | {{#m3}} |
-| `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + `trustedOrigins` | {{#m3}} |
+| `BETTER_AUTH_URL` | `http://localhost:1339` · `https://<project>.strapiapp.com` | bare origin | {{#m3}} |
+| `WEB_ORIGINS` | `http://localhost:8083,https://matfinder.vercel.app` | CORS + `trustedOrigins` | {{#m3}} |
 | `MAPBOX_GEOCODING_TOKEN` | `pk.…`/`sk.…` | server-only geocoding (no URL restriction); falls back to the above | {{#m5}} |
 | `MCP_ENABLED` | `true` | | {{#m5}} |
 | `SEED_SAMPLE_DATA` | `true` | **development only** | {{#m8}} (left unset on Strapi Cloud per {{#m9}}) |

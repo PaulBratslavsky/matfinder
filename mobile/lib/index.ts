@@ -1,4 +1,4 @@
-const STRAPI_URL = process.env.EXPO_PUBLIC_STRAPI_URL || "http://localhost:1337";
+const STRAPI_URL = process.env.EXPO_PUBLIC_STRAPI_URL || "http://localhost:1339";
 
 export function getStrapiURL(): string {
   return STRAPI_URL;

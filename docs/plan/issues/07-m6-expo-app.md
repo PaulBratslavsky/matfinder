@@ -71,8 +71,8 @@ Modules: `lib/api/client.ts` (qs fetch wrapper; base URL native `EXPO_PUBLIC_STR
 ### Env vars (`mobile/.env`, Vercel, EAS)
 | Variable | Example | Notes |
 |---|---|---|
-| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1337` (iOS sim) · `http://10.0.2.2:1337` (Android emu) · `http://<LAN-IP>:1337` (device) · `https://<project>.strapiapp.com` | native API + auth |
-| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1337` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
+| `EXPO_PUBLIC_STRAPI_URL` | `http://localhost:1339` (iOS sim) · `http://10.0.2.2:1339` (Android emu) · `http://<LAN-IP>:1339` (device) · `https://<project>.strapiapp.com` | native API + auth |
+| `EXPO_PUBLIC_WEB_API_BASE` | `http://localhost:1339` (dev) · *(empty)* (prod, relative via rewrite) | web API + auth |
 | `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` | `pk.…` | URL-restricted to the Vercel domains |
 | `EXPO_PUBLIC_DEFAULT_CITY` | `las-vegas` | |
 | `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` | `sk.…` (`DOWNLOADS:READ`) | **build-time secret**, never `EXPO_PUBLIC_` |
@@ -88,7 +88,7 @@ Modules: `lib/api/client.ts` (qs fetch wrapper; base URL native `EXPO_PUBLIC_STR
 - **`RNMAPBOX_MAPS_DOWNLOAD_TOKEN` is a build-time secret**; never give it the `EXPO_PUBLIC_` prefix.
 - **Never use the device time zone**; use the city's `timezone`.
 - **Without a Mapbox token → `MapUnavailable` + list view.**
-- **Android emulator uses `http://10.0.2.2:1337`**, not `localhost`. If 1337 is taken locally, change `PORT` and the app's URLs together.
+- **Android emulator uses `http://10.0.2.2:1339`**, not `localhost`. Local ports are listed in CLAUDE.md.
 - **Filters live in URL search params** (`q`, `today`, `visitors`, `style`, `school`, per the route table). Per AC2 they combine with AND; per the {{#m9}} unit tests, search is accent- and case-insensitive.
 
 ## Verify during this step

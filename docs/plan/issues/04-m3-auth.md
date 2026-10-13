@@ -19,12 +19,12 @@ Strapi authenticates end users with **Better Auth** (email + password, 30-day sl
   import { expo } from '@better-auth/expo'
   import { strapiAdapter } from '@strapi-community/plugin-better-auth'
 
-  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8081').split(',').map((s) => s.trim())
+  const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:8083').split(',').map((s) => s.trim())
 
   export const auth = betterAuth({
     database: strapiAdapter(),
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1337',
+    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:1339',
     trustedOrigins: [...webOrigins, 'matfinder://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://'])],
     emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 8 },
     session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 }, // 30-day sliding session
@@ -34,7 +34,7 @@ Strapi authenticates end users with **Better Auth** (email + password, 30-day sl
   export default auth
   ```
 - [ ] `npx @better-auth/cli generate --config src/lib/auth.ts --yes` to create the `user` / `session` / `account` / `verification` content types. Re-run it whenever Better Auth plugins change.
-- [ ] CORS in `config/middlewares.ts`: replace `'strapi::cors'` with `{ name: 'strapi::cors', config: { origin: env.array('WEB_ORIGINS', ['http://localhost:8081']), credentials: true } }`.
+- [ ] CORS in `config/middlewares.ts`: replace `'strapi::cors'` with `{ name: 'strapi::cors', config: { origin: env.array('WEB_ORIGINS', ['http://localhost:8083']), credentials: true } }`.
 - [ ] **Seed role permissions** in `bootstrap()`, idempotently. Roles are `plugin::api-permissions.role` (seeded Public / Authenticated); rows are `plugin::api-permissions.permission { action, role }`:
   ```ts
   const GRANTS = {
@@ -54,8 +54,8 @@ Strapi authenticates end users with **Better Auth** (email + password, 30-day sl
 | Variable | Example | Notes |
 |---|---|---|
 | `BETTER_AUTH_SECRET` | `openssl rand -hex 32` | |
-| `BETTER_AUTH_URL` | `http://localhost:1337` · `https://<project>.strapiapp.com` | bare origin |
-| `WEB_ORIGINS` | `http://localhost:8081,https://matfinder.vercel.app` | CORS + `trustedOrigins` |
+| `BETTER_AUTH_URL` | `http://localhost:1339` · `https://<project>.strapiapp.com` | bare origin |
+| `WEB_ORIGINS` | `http://localhost:8083,https://matfinder.vercel.app` | CORS + `trustedOrigins` |
 
 **Auth design (spec § Auth):**
 - Better Auth via `@strapi-community/plugin-better-auth` (⚠️ beta; re-evaluate before production), `plugin-api-permissions` (roles: Public, Authenticated), `plugin-better-auth-dashboard`. Users & Permissions **removed**. Strapi ≥ 5.45 (satisfied by ≥ 5.49 from {{#m1}}).
@@ -101,10 +101,10 @@ If a check fails, the deviation protocol applies: stop and ask.
 
 Example calls. The request body is a guess at Better Auth's sign-up fields, so adjust it if they differ. *(added: not in spec)*
 ```bash
-curl -i -c /tmp/mf-cookies.txt -X POST http://localhost:1337/api/auth/sign-up/email \
-  -H 'Content-Type: application/json' -H 'Origin: http://localhost:8081' \
+curl -i -c /tmp/mf-cookies.txt -X POST http://localhost:1339/api/auth/sign-up/email \
+  -H 'Content-Type: application/json' -H 'Origin: http://localhost:8083' \
   -d '{"name":"Test User","email":"test+m3@example.com","password":"password123"}'
-curl -i -b /tmp/mf-cookies.txt http://localhost:1337/api/auth/get-session
+curl -i -b /tmp/mf-cookies.txt http://localhost:1339/api/auth/get-session
 ```
 
 ## Acceptance criteria this step unlocks
