@@ -7,8 +7,8 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **The work:** GitHub issues. Epic **#2**; milestones **#3 (M0) → #12 (M9)**. `docs/plan/issues/plan.json` maps each milestone to its issue, and `docs/plan/issues/*.md` are the drafts behind them.
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
-## Status (2026-09-30)
-M0 (#3), M1 (#4, Strapi 5.56.0), M2 (#5, content model), M3 (#6, Better Auth), M4 (#7, school API), M5 (#8, MCP tools), M8 (#11, sample seed), M6 (#9, Expo app), M7 (#10, auth UI) and M9 (#12, tests + Vercel config) are open as stacked draft PRs. They wait on an admin login to check the map field and the new types, and Strapi Cloud. Every milestone's code is written; what's left is on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR lists the steps). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
+## Status (2026-10-13)
+Every milestone, M0–M9 (#3–#12), is built and merged to `main` through PRs #17–#30. The last three are the Explore rebuild on metravel-explore (#27), the "Mat room" UI on design tokens (#28), the architecture doc (#29) and fixes from the pre-merge review (#30). Issue #12 (M9) and the epic #2 stay open for what's left on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR #26 lists the steps). The native apps haven't been run on a device or simulator yet (see "iPhone Simulator" in `docs/architecture.md`). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:
