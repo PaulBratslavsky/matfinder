@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "schools",
+  "info": { "singularName": "school", "pluralName": "schools", "displayName": "School" },
+  "options": { "draftAndPublish": true },
+  "attributes": {
+    "name": { "type": "string", "required": true, "maxLength": 120 },
+    "slug": { "type": "uid", "targetField": "name", "required": true },
+    "shortDescription": { "type": "text", "maxLength": 280 },
+    "description": { "type": "blocks" },
+    "city": { "type": "relation", "relation": "manyToOne", "target": "api::city.city", "inversedBy": "schools" },
+    "location": { "type": "customField", "customField": "global::map-box", "required": true },
+    "neighborhood": { "type": "string" },
+    "postalCode": { "type": "string" },
+    "logo": { "type": "media", "multiple": false, "allowedTypes": ["images"] },
+    "gallery": { "type": "media", "multiple": true, "allowedTypes": ["images"] },
+    "affiliation": { "type": "relation", "relation": "manyToOne", "target": "api::affiliation.affiliation", "inversedBy": "schools" },
+    "headInstructors": { "type": "relation", "relation": "manyToMany", "target": "api::instructor.instructor", "inversedBy": "schools" },
+    "pricing": { "type": "component", "repeatable": false, "component": "school.pricing" },
+    "contact": { "type": "component", "repeatable": false, "component": "school.contact" },
+    "amenities": { "type": "component", "repeatable": false, "component": "school.amenities" },
+    "schedule": { "type": "component", "repeatable": true, "component": "schedule.session" },
+    "lastVerifiedAt": { "type": "date" }
+  }
+}

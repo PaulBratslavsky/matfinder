@@ -443,12 +443,12 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
-  collectionName: 'categories';
+export interface ApiAffiliationAffiliation extends Struct.CollectionTypeSchema {
+  collectionName: 'affiliations';
   info: {
-    displayName: 'category';
-    pluralName: 'categories';
-    singularName: 'category';
+    displayName: 'Affiliation';
+    pluralName: 'affiliations';
+    singularName: 'affiliation';
   };
   options: {
     draftAndPublish: true;
@@ -457,46 +457,180 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    description: Schema.Attribute.Text;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::category.category'
+      'api::affiliation.affiliation'
     > &
       Schema.Attribute.Private;
+    logo: Schema.Attribute.Media<'images'>;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
     publishedAt: Schema.Attribute.DateTime;
-    title: Schema.Attribute.String;
+    schools: Schema.Attribute.Relation<'oneToMany', 'api::school.school'>;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    website: Schema.Attribute.String;
+  };
+}
+
+export interface ApiCityCity extends Struct.CollectionTypeSchema {
+  collectionName: 'cities';
+  info: {
+    displayName: 'City';
+    pluralName: 'cities';
+    singularName: 'city';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    center: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.CustomField<'global::map-box'>;
+    country: Schema.Attribute.String & Schema.Attribute.DefaultTo<'US'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    defaultZoom: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<10.5>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::city.city'> &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    schools: Schema.Attribute.Relation<'oneToMany', 'api::school.school'>;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    state: Schema.Attribute.String;
+    timezone: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
   };
 }
 
-export interface ApiLocationLocation extends Struct.CollectionTypeSchema {
-  collectionName: 'locations';
+export interface ApiInstructorInstructor extends Struct.CollectionTypeSchema {
+  collectionName: 'instructors';
   info: {
-    displayName: 'location';
-    pluralName: 'locations';
-    singularName: 'location';
+    displayName: 'Instructor';
+    pluralName: 'instructors';
+    singularName: 'instructor';
   };
   options: {
     draftAndPublish: true;
   };
   attributes: {
-    category: Schema.Attribute.Relation<'oneToOne', 'api::category.category'>;
+    beltRank: Schema.Attribute.Enumeration<
+      [
+        'white',
+        'blue',
+        'purple',
+        'brown',
+        'black',
+        'red_black',
+        'red_white',
+        'red',
+      ]
+    > &
+      Schema.Attribute.Required;
+    bio: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 1000;
+      }>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    degree: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 10;
+          min: 0;
+        },
+        number
+      >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::location.location'
+      'api::instructor.instructor'
     > &
       Schema.Attribute.Private;
-    mapData: Schema.Attribute.JSON &
-      Schema.Attribute.CustomField<'global::map-box'>;
-    name: Schema.Attribute.String;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    photo: Schema.Attribute.Media<'images'>;
     publishedAt: Schema.Attribute.DateTime;
+    schools: Schema.Attribute.Relation<'manyToMany', 'api::school.school'>;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
+  collectionName: 'schools';
+  info: {
+    displayName: 'School';
+    pluralName: 'schools';
+    singularName: 'school';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    affiliation: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::affiliation.affiliation'
+    >;
+    amenities: Schema.Attribute.Component<'school.amenities', false>;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'>;
+    contact: Schema.Attribute.Component<'school.contact', false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Blocks;
+    gallery: Schema.Attribute.Media<'images', true>;
+    headInstructors: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::instructor.instructor'
+    >;
+    lastVerifiedAt: Schema.Attribute.Date;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::school.school'
+    > &
+      Schema.Attribute.Private;
+    location: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.CustomField<'global::map-box'>;
+    logo: Schema.Attribute.Media<'images'>;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    neighborhood: Schema.Attribute.String;
+    postalCode: Schema.Attribute.String;
+    pricing: Schema.Attribute.Component<'school.pricing', false>;
+    publishedAt: Schema.Attribute.DateTime;
+    schedule: Schema.Attribute.Component<'schedule.session', true>;
+    shortDescription: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 280;
+      }>;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1014,8 +1148,10 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::category.category': ApiCategoryCategory;
-      'api::location.location': ApiLocationLocation;
+      'api::affiliation.affiliation': ApiAffiliationAffiliation;
+      'api::city.city': ApiCityCity;
+      'api::instructor.instructor': ApiInstructorInstructor;
+      'api::school.school': ApiSchoolSchool;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
