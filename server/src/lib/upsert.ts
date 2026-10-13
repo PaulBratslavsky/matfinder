@@ -1,5 +1,6 @@
 import type { Core, UID } from '@strapi/strapi';
 import { draftStatus, type DraftStatus } from './drafts';
+import { sameJson } from './equal';
 import { isUniqueViolation, ToolError } from './errors';
 import { slugifyWithFallback } from './slugify';
 
@@ -47,7 +48,7 @@ export async function upsertScalarDraft(
     for (const field of opts.fields) {
       if (input[field] === undefined) continue;
       const value = opts.normalize?.[field] ? opts.normalize[field](input[field]) : input[field];
-      if (JSON.stringify(value ?? null) !== JSON.stringify(existing?.[field] ?? null)) data[field] = value;
+      if (!sameJson(value, existing?.[field])) data[field] = value;
     }
     const changedFields = Object.keys(data);
     const doc = existing

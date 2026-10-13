@@ -14,7 +14,11 @@ export const draftStatus = z.enum(['published', 'unpublished-changes', 'never-pu
 
 /** A Strapi `string` field (255-character app-layer max). */
 export const str = z.string().max(255);
-export const slug = z.string().min(1).max(255);
+/** Lowercase words joined by hyphens, as slugify() makes them. An unknown slug means "create", so a malformed one would add a duplicate. */
+export const slug = z
+  .string()
+  .max(255)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'lowercase letters, digits and hyphens, e.g. summerlin-bjj');
 export const hhmm = z.string().regex(/^\d{2}:\d{2}$/, 'HH:mm, 24-hour');
 export const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 

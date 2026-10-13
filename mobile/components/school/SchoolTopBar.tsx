@@ -5,9 +5,13 @@ import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { RoundButton } from '@/components/kit';
 import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 
+/** The public web address of the app (EXPO_PUBLIC_WEB_URL), so shared links open for people without the app. */
+const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? '').replace(/\/+$/, '');
+
 /** Share the gym: the system share sheet, or on a desktop browser without one, copy the link. */
 async function shareGym(name: string, slug: string): Promise<'shared' | 'copied' | 'failed'> {
-  const url = Platform.OS === 'web' ? window.location.href : Linking.createURL(`/schools/${slug}`);
+  const url =
+    Platform.OS === 'web' ? window.location.href : WEB_URL ? `${WEB_URL}/schools/${slug}` : Linking.createURL(`/schools/${slug}`);
   try {
     if (Platform.OS === 'web' && !navigator.share) {
       await navigator.clipboard.writeText(url);

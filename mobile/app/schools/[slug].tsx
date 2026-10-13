@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
@@ -22,6 +23,7 @@ import { useSchool } from '@/hooks/useSchool';
 import { useSession } from '@/hooks/useSession';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { ApiError, AuthRequiredError } from '@/lib/api/client';
+import { authClient } from '@/lib/auth-client';
 import { getDistanceMiles } from '@/lib/geo';
 import { toMinutes } from '@/lib/time';
 import { nextClass, restOfWeek, sessionsOn, visitChecklist, weekGrid } from '@/lib/week';
@@ -39,6 +41,7 @@ export default function SchoolScreen() {
   const insets = useSafeAreaInsets();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const session = useSession();
+  const queryClient = useQueryClient();
   const school = useSchool(slug);
   const now = useCityNow(school.data?.city?.timezone);
   const user = useUserLocation();
@@ -60,9 +63,27 @@ export default function SchoolScreen() {
       </Centered>
     );
   }
-  // Signed out, or the session expired mid-use (the server answered 401/403).
-  if (!session.data?.user || school.error instanceof AuthRequiredError) return <Redirect href={signIn} />;
-  if (school.error) {
+  if (!session.data?.user) return <Redirect href={signIn} />;
+  // The app thinks it's signed in but the server refused (the session expired or was revoked). Redirecting straight
+  // to sign-in would bounce back here, because sign-in sends signed-in users onward, so sign out locally first.
+  if (school.error instanceof AuthRequiredError) {
+    return (
+      <Centered>
+        <Stack.Screen options={{ title: 'Sign in again' }} />
+        <Text style={styles.errorTitle}>Your session has ended</Text>
+        <ActionButton
+          label="Sign in again"
+          onPress={async () => {
+            await authClient.signOut();
+            queryClient.removeQueries({ queryKey: ['school'] });
+            router.replace(signIn);
+          }}
+        />
+      </Centered>
+    );
+  }
+  // A failed background refetch keeps the cached page on screen; the error screen is for having nothing to show.
+  if (school.error && !s) {
     const notFound = school.error instanceof ApiError && school.error.status === 404;
     return (
       <Centered>

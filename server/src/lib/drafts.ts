@@ -1,4 +1,5 @@
 import type { Core, UID } from '@strapi/strapi';
+import { sameJson } from './equal';
 
 /** How a draft-and-publish document relates to its published version. */
 export type DraftStatus = 'published' | 'unpublished-changes' | 'never-published';
@@ -51,7 +52,7 @@ export function changedFields(attributes: Record<string, { type: string }>, draf
     .filter(([name, attribute]) => {
       const d = normalize(draft[name], attribute);
       if (!published) return !isEmpty(d);
-      return JSON.stringify(d) !== JSON.stringify(normalize(published[name], attribute));
+      return !sameJson(d, normalize(published[name], attribute));
     })
     .map(([name]) => name);
 }

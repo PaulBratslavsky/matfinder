@@ -28,7 +28,8 @@ export function SignUpForm({ redirect }: { redirect: string }) {
     const { error: err } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password });
     setSubmitting(false);
     if (err) return setError(err.message ?? 'Sign up failed. Try again.');
-    router.replace(redirect as never);
+    // Back to where the user came from if it's still in the stack (e.g. Account), else replace this screen.
+    router.dismissTo(redirect as never);
   }
 
   return (
