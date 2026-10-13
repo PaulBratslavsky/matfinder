@@ -10,6 +10,7 @@ import { blocksToText, textToBlocks } from '../../../lib/blocks';
 import { draftStatus, pendingDrafts, type DraftStatus, type PendingDraft } from '../../../lib/drafts';
 import { isUniqueViolation, ToolError } from '../../../lib/errors';
 import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
+import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewares/normalize-contact';
 import { slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
@@ -208,7 +209,13 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     for (const component of ['pricing', 'contact', 'amenities'] as const) {
       if (input[component] === undefined) continue;
       const before = existing?.[component] ? withoutIds(existing[component]) : null;
-      write(component, { ...(before ?? {}), ...input[component] }, before);
+      const merged: Record<string, unknown> = { ...(before ?? {}), ...input[component] };
+      // Compare in the form the normalize-contact middleware stores, so `@handle` vs `handle` isn't a change.
+      if (component === 'contact') {
+        if ('instagram' in merged) merged.instagram = normalizeInstagram(merged.instagram);
+        if ('website' in merged) merged.website = normalizeWebsite(merged.website);
+      }
+      write(component, merged, before);
     }
 
     const doc = existing

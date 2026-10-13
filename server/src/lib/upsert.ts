@@ -20,7 +20,14 @@ export async function statusOf(strapi: Core.Strapi, uid: UID.ContentType, docume
  */
 export async function upsertScalarDraft(
   strapi: Core.Strapi,
-  opts: { uid: UID.ContentType; type: string; fields: string[]; requiredOnCreate: string[] },
+  opts: {
+    uid: UID.ContentType;
+    type: string;
+    fields: string[];
+    requiredOnCreate: string[];
+    /** Per-field normalization matching what the Document Service middlewares store, applied before comparing. */
+    normalize?: Record<string, (value: unknown) => unknown>;
+  },
   input: Record<string, unknown> & { slug?: string; name?: string },
 ): Promise<UpsertResult> {
   const docs = strapi.documents(opts.uid) as any;
@@ -32,13 +39,15 @@ export async function upsertScalarDraft(
     if (!existing) {
       for (const field of opts.requiredOnCreate) {
         if (input[field] === undefined || input[field] === null || input[field] === '') {
-          throw new ToolError('VALIDATION_ERROR', `required to create ${opts.type === 'affiliation' ? 'an' : 'a'} ${opts.type}`, { path: [field] });
+          throw new ToolError('VALIDATION_ERROR', `required to create ${/^[aeiou]/.test(opts.type) ? 'an' : 'a'} ${opts.type}`, { path: [field] });
         }
       }
     }
     const data: Record<string, unknown> = {};
     for (const field of opts.fields) {
-      if (input[field] !== undefined && JSON.stringify(input[field]) !== JSON.stringify(existing?.[field] ?? null)) data[field] = input[field];
+      if (input[field] === undefined) continue;
+      const value = opts.normalize?.[field] ? opts.normalize[field](input[field]) : input[field];
+      if (JSON.stringify(value ?? null) !== JSON.stringify(existing?.[field] ?? null)) data[field] = value;
     }
     const changedFields = Object.keys(data);
     const doc = existing

@@ -2,6 +2,7 @@ import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
 import { backfillUserRoles, seedPermissions } from './lib/permissions';
 import { registerMcp } from './mcp';
+import { seedSampleData } from './seed/sample';
 
 /**
  * `unique: true` in a schema is validation-layer only, and Document Service writes bypass it, so slugs get real
@@ -33,5 +34,13 @@ export default {
     }
     await seedPermissions(strapi);
     await backfillUserRoles(strapi);
+    // Development only: never set SEED_SAMPLE_DATA on Strapi Cloud.
+    if (process.env.SEED_SAMPLE_DATA === 'true') {
+      try {
+        await seedSampleData(strapi);
+      } catch (e) {
+        strapi.log.error('[matfinder] sample data seed failed', e);
+      }
+    }
   },
 };
