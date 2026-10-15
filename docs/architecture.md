@@ -66,7 +66,7 @@ flowchart LR
 |---|---|---|
 | Backend | Strapi 5.58.0, TypeScript | `server/`, deployed to Strapi Cloud (Postgres); SQLite locally |
 | End-user auth | Better Auth via `@strapi-community/plugin-better-auth` (beta), roles via `plugin-api-permissions` (alpha) | `server/src/lib/auth.ts` |
-| Curation | Strapi's built-in MCP server + 8 custom tools, an admin page and a homepage widget | `server/src/plugins/matfinder/` (a local plugin) |
+| Curation | Strapi's built-in MCP server + 10 custom tools and a prompt, an admin page and a homepage widget | `server/src/plugins/matfinder/` (a local plugin) |
 | App | Expo SDK 57, expo-router, React Native 0.86, NativeWind 4, React Query 5 | `mobile/`, web deployed to Vercel |
 | Maps | `@rnmapbox/maps` (native), `react-map-gl` + `mapbox-gl` 3 (web), `strapi-plugin-map-box` (admin field) | `mobile/components/LocationMap*.tsx` |
 
@@ -171,7 +171,7 @@ erDiagram
 | `GET /api/schools/slug/:slug` | Signed-in users (Authenticated role) | The full published page: description, gallery, coaches, pricing, contact, amenities, the whole week, `nextSessionToday`, `lastVerifiedAt`. |
 | `GET /api/cities` | Everyone | Core find. |
 | `/api/auth/*` | Everyone | Better Auth: sign up, sign in, session, sign out. |
-| `POST /mcp` | Admin tokens holding the MatFinder MCP actions | The 8 curation tools. |
+| `POST /mcp` | Admin tokens holding the MatFinder MCP actions | The 10 curation tools and the `find_new_gyms` prompt. |
 
 The gate is enforced on the server, not in the app: `plugin-api-permissions` grants are seeded in `bootstrap()` (`server/src/lib/permissions.ts`) and nothing else is granted (no core CRUD on schools, instructors or affiliations, nothing on users). The public directory is built field by field (`toDirectoryItem` in `server/src/lib/directory.ts`): the full schedule is read to work out today's sessions, styles and programs, but only today's sessions leave the server.
 
@@ -235,6 +235,10 @@ Strapi's MCP server is on (`config/server.ts`, `MCP_ENABLED`). The tools live in
 | `set_school_schedule` | Replace the weekly schedule of a draft. |
 | `upsert_instructor`, `upsert_affiliation` | Drafts of coaches and teams. |
 | `list_pending_drafts` | What's waiting for review, with the fields that changed. |
+| `find_possible_duplicates` | Is a gym found on the web already listed? Matches a similar name in the city, the same phone, website or Instagram, or being within 150 m. |
+| `add_gym_from_web` | Add a gym found on the web as a **draft** with its source pages (`sourceUrls`). Refuses a likely duplicate (`DUPLICATE_SUSPECTED`, with the candidates) unless the agent confirms it's a different gym. |
+
+The **`find_new_gyms`** prompt (`{ city, area? }`) gives an agent with web search the whole loop: search, check duplicates, add drafts with sources, add schedules, report. Gyms it adds carry three private fields on the school (`origin: web-agent`, `sourceUrls`, `discoveredAt`), visible in the admin and never in public responses; the admin's **From the web** tab lists them until they're published.
 
 ```mermaid
 sequenceDiagram

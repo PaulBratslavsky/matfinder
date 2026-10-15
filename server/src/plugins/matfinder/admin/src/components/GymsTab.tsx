@@ -30,6 +30,7 @@ type Gym = {
   status: GymStatus;
   updatedAt: string;
   lastVerifiedAt: string | null;
+  origin: 'manual' | 'web-agent';
 };
 type GymPage = { items: Gym[]; page: number; limit: number; total: number; hasMore: boolean };
 
@@ -151,7 +152,10 @@ export function GymsTab() {
                 <Typography>{g.affiliation?.name ?? ''}</Typography>
               </Td>
               <Td>
-                <Badge variant={STATUS_LABELS[g.status].variant}>{STATUS_LABELS[g.status].label}</Badge>
+                <Flex gap={1} wrap="wrap">
+                  <Badge variant={STATUS_LABELS[g.status].variant}>{STATUS_LABELS[g.status].label}</Badge>
+                  {g.origin === 'web-agent' && <Badge variant="alternative">From the web</Badge>}
+                </Flex>
               </Td>
               <Td>
                 <Typography textColor={g.lastVerifiedAt ? 'neutral800' : 'neutral500'}>{formatDay(g.lastVerifiedAt) || 'Never'}</Typography>

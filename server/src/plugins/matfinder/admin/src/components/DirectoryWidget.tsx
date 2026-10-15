@@ -3,7 +3,7 @@ import { Widget, useFetchClient } from '@strapi/strapi/admin';
 import { useEffect, useState } from 'react';
 import { startPolling } from '../poll';
 
-type Summary = { gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number } };
+type Summary = { gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number; fromWeb: number } };
 
 function Tile({ value, label }: { value: number; label: string }) {
   return (
@@ -46,15 +46,18 @@ export default function DirectoryWidget() {
   const g = data.gyms;
   if (g.total === 0) return <Widget.NoData>No gyms yet</Widget.NoData>;
   return (
-    <Grid.Root gap={3} gridCols={2}>
+    <Grid.Root gap={3} gridCols={3}>
       <Grid.Item col={1}>
         <Tile value={g.published} label="Published" />
+      </Grid.Item>
+      <Grid.Item col={1}>
+        <Tile value={g.fromWeb} label="New from the web" />
       </Grid.Item>
       <Grid.Item col={1}>
         <Tile value={g.unpublishedChanges} label="Changes waiting" />
       </Grid.Item>
       <Grid.Item col={1}>
-        <Tile value={g.neverPublished} label="Drafts, never published" />
+        <Tile value={g.neverPublished} label="Drafts" />
       </Grid.Item>
       <Grid.Item col={1}>
         <Tile value={g.total} label="All gyms" />
