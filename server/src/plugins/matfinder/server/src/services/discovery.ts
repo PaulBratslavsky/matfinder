@@ -1,6 +1,7 @@
 import type { Core } from '@strapi/strapi';
 import { findDuplicates, type ExistingGym } from '../domain/duplicates';
 import { ToolError } from '../domain/errors';
+import { draftStatus } from '../domain/status';
 
 const SCHOOL = 'api::school.school';
 const CITY = 'api::city.city';
@@ -29,7 +30,7 @@ export type WebGymInput = DuplicateQuery & {
 const docs = (strapi: Core.Strapi, uid: string) => strapi.documents(uid as any) as any;
 const schools = (strapi: Core.Strapi) => strapi.service('api::school.school') as any;
 
-/** Gyms an agent found on the web: duplicate checks, adding them as drafts with their sources, and the review list. */
+/** Gyms an agent found on the web: duplicate checks, adding them with their sources, and the admin's list of them. */
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   async function cityOrThrow(slug: string) {
     const city = await docs(strapi, CITY).findFirst({ filters: { slug }, fields: ['slug', 'name', 'center'] });
@@ -78,11 +79,11 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     return { candidates, distanceChecked: !!at, at };
   }
 
-  /** documentIds of gyms with a published version. */
-  async function publishedIds(ids: string[]): Promise<Set<string>> {
-    if (!ids.length) return new Set();
-    const rows = await docs(strapi, SCHOOL).findMany({ status: 'published', filters: { documentId: { $in: ids } }, fields: ['slug'], limit: ids.length });
-    return new Set(rows.map((r: any) => r.documentId));
+  /** The published version's updatedAt per documentId (gyms without one are missing). */
+  async function publishedAt(ids: string[]): Promise<Map<string, string>> {
+    if (!ids.length) return new Map();
+    const rows = await docs(strapi, SCHOOL).findMany({ status: 'published', filters: { documentId: { $in: ids } }, fields: ['updatedAt'], limit: ids.length });
+    return new Map(rows.map((r: any) => [r.documentId, r.updatedAt]));
   }
 
   return {
@@ -92,8 +93,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     /**
-     * Adds a gym found on the web as a DRAFT with its sources. Refuses a likely duplicate (DUPLICATE_SUSPECTED, with the
-     * candidates) unless the agent confirms it's a different gym.
+     * Adds a gym found on the web with its sources (as a draft; the MCP tool then publishes it, see publishing.ts).
+     * Refuses a likely duplicate (DUPLICATE_SUSPECTED, with the candidates) unless the agent confirms it's a different gym.
      */
     async addGymFromWeb(input: WebGymInput) {
       const { candidates, at } = await possibleDuplicates(input);
@@ -122,25 +123,27 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
           documentId: created.documentId,
           data: { origin: 'web-agent', sourceUrls, discoveredAt: new Date().toISOString() },
         });
-        return { documentId: created.documentId, slug: created.slug, status: created.status, sourceUrls };
+        return { documentId: created.documentId, slug: created.slug, sourceUrls };
       });
     },
 
-    /** Drafts the agent added that were never published: the From the web tab and the widget count. */
+    /**
+     * Every gym the agent added, newest first, with whether it's live: the From the web tab. `notLive` (the tab's badge)
+     * counts the ones that aren't published, `thisWeek` (the widget) the ones added in the last 7 days.
+     */
     async listFromWeb() {
       const rows = await docs(strapi, SCHOOL).findMany({
         status: 'draft',
         filters: { origin: 'web-agent' },
-        fields: ['slug', 'name', 'neighborhood', 'sourceUrls', 'discoveredAt', 'location'],
+        fields: ['slug', 'name', 'neighborhood', 'sourceUrls', 'discoveredAt', 'location', 'updatedAt'],
         populate: { city: { fields: ['slug', 'name'] }, contact: true },
         sort: 'discoveredAt:desc',
         limit: 500,
       });
-      const published = await publishedIds(rows.map((r: any) => r.documentId));
-      const waiting = rows.filter((r: any) => !published.has(r.documentId));
+      const published = await publishedAt(rows.map((r: any) => r.documentId));
       const byCity = new Map<string, ExistingGym[]>();
       const items = [];
-      for (const r of waiting) {
+      for (const r of rows) {
         const citySlug = r.city?.slug;
         if (citySlug && !byCity.has(citySlug)) byCity.set(citySlug, await cityGyms(citySlug));
         const others = (byCity.get(citySlug) ?? []).filter((g) => g.documentId !== r.documentId);
@@ -156,10 +159,17 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
           city: r.city ? { slug: r.city.slug, name: r.city.name } : null,
           sourceUrls: Array.isArray(r.sourceUrls) ? r.sourceUrls : [],
           discoveredAt: r.discoveredAt ?? null,
+          status: draftStatus(r, published.has(r.documentId) ? { updatedAt: published.get(r.documentId)! } : null),
           possibleDuplicates: dups.map((d) => ({ slug: d.slug, name: d.name, reasons: d.reasons })),
         });
       }
-      return { items, total: items.length };
+      const weekAgo = Date.now() - 7 * 24 * 3600_000;
+      return {
+        items,
+        total: items.length,
+        notLive: items.filter((g) => g.status !== 'published').length,
+        thisWeek: items.filter((g) => g.discoveredAt && new Date(g.discoveredAt).getTime() >= weekAgo).length,
+      };
     },
 
     /** origin per documentId, for the Gyms table. */

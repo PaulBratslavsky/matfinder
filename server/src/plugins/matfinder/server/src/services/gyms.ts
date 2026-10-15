@@ -33,14 +33,15 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
   /** Directory totals for the homepage widget. Each count is one status-filtered query; the directory is small. */
   async summary() {
     const count = async (status: Status) => (await schools(strapi).findSchools({ status, limit: 1 })).total as number;
-    const [total, published, unpublishedChanges, neverPublished, fromWeb] = await Promise.all([
+    const [total, published, unpublishedChanges, neverPublished, web] = await Promise.all([
       count('any'),
       count('published'),
       count('unpublished-changes'),
       count('never-published'),
-      strapi.plugin('matfinder').service('discovery').listFromWeb().then((r: { total: number }) => r.total),
+      strapi.plugin('matfinder').service('discovery').listFromWeb(),
     ]);
     const claims = await strapi.plugin('matfinder').service('claims').summary();
+    const fromWeb = { total: web.total, notLive: web.notLive, thisWeek: web.thisWeek };
     return { gyms: { total, published, unpublishedChanges, neverPublished, fromWeb, claimed: claims.claimed }, claims };
   },
 });

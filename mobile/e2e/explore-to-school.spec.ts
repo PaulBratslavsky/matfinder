@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { API_URL } from '../playwright.config';
 
-type DirectorySchool = { slug: string; name: string; visitorsWelcome: boolean; todaySessions: { start: string; end: string }[] };
+type DirectorySchool = { slug: string; name: string; visitorsWelcome: boolean | null; todaySessions: { start: string; end: string }[] };
 
 const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 /** Minutes since midnight in Las Vegas, computed independently of the app. */

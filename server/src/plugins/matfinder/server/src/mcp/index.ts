@@ -13,7 +13,10 @@ import { findPossibleDuplicates } from './tools/find-possible-duplicates';
 import { findNewGymsArgs, findNewGymsText } from './prompts/find-new-gyms';
 import type { ToolDef } from './types';
 
-/** The 10 MatFinder tools. All writes are drafts: no tool publishes, unpublishes, deletes or uploads media. */
+/**
+ * The 10 MatFinder tools. Writes go live: each write tool publishes what it changed (services/publishing.ts; off with
+ * MATFINDER_AUTO_PUBLISH=false). No tool unpublishes, deletes or uploads media.
+ */
 export const TOOLS: ToolDef[] = [
   listReferenceData,
   findSchools,
@@ -62,7 +65,9 @@ export async function registerMcp(strapi: Core.Strapi) {
       resolveOutputSchema: () => t.output,
       createHandler: (s: Core.Strapi) => async ({ args }: { args: any }) => {
         try {
-          return guard(await t.run(s, args ?? {}), t.shrinkHint);
+          const data = await t.run(s, args ?? {});
+          const live = t.publishes ? await s.plugin('matfinder').service('publishing').afterWrite(t.publishes, data.slug as string) : {};
+          return guard({ ...data, ...live }, t.shrinkHint);
         } catch (e) {
           return toErrorResult(e, t.mapPath);
         }
@@ -75,7 +80,7 @@ export async function registerMcp(strapi: Core.Strapi) {
     name: 'find_new_gyms',
     title: 'Find new gyms on the web',
     description:
-      'Search the web for BJJ gyms in a city that MatFinder does not list yet, skip duplicates, and add the rest as drafts with their source pages.',
+      'Search the web for BJJ gyms in a city that MatFinder does not list yet, skip duplicates, and add the rest to the directory with their source pages.',
     argsSchema: findNewGymsArgs,
     auth: { policies: [{ action: actionId('add_gym_from_web') }] },
     createHandler: () => async (args: { city: string; area?: string }) => ({

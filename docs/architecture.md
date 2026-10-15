@@ -227,21 +227,21 @@ flowchart LR
 
 ## 7. Curating listings with Claude (MCP)
 
-Strapi's MCP server is on (`config/server.ts`, `MCP_ENABLED`). The tools live in the MatFinder plugin: `server/src/plugins/matfinder/server/src/mcp/index.ts` registers one **admin action per tool** in `register()` (`plugin::matfinder.mcp.<tool>`, under Plugins → MatFinder), so a curator's admin token can be granted exactly these tools and none of the generic content-manager ones. The plugin also adds the admin's **MatFinder** page (every gym and its publish status) and a **Gym directory** homepage widget; both need the `plugin::matfinder.read` permission.
+Strapi's MCP server is on (`config/server.ts`, `MCP_ENABLED`). The tools live in the MatFinder plugin: `server/src/plugins/matfinder/server/src/mcp/index.ts` registers one **admin action per tool** in `register()` (`plugin::matfinder.mcp.<tool>`, under Plugins → MatFinder), so a curator's admin token can be granted exactly these tools and none of the generic content-manager ones. The plugin also adds the admin's **MatFinder** page (every gym and its publish status) and a **Gym directory** homepage widget; both need the `plugin::matfinder.read` permission. The plugin must be built (`npm run build:plugin`) before Strapi starts: Strapi silently skips a plugin without its `dist/server`, and booting without MatFinder drops its claims table and deletes every token grant for its tools, so `config/plugins.ts` refuses to start without the build.
 
 | Tool | Does |
 |---|---|
 | `list_reference_data` | The cities, teams and instructors that already exist (names and slugs), so Claude reuses them instead of creating duplicates. |
 | `find_schools` | Search drafts with publish status; filter for stale listings (`staleDays`). Paged. |
 | `get_school_draft` | One listing's draft, schedule as `HH:mm`, description as plain text. (Not `get_school`: the content manager already registers that name.) |
-| `upsert_school` | Create or partially update a school **draft**. Geocodes the street address with Mapbox before the write. |
-| `set_school_schedule` | Replace the weekly schedule of a draft. |
-| `upsert_instructor`, `upsert_affiliation` | Drafts of coaches and teams. |
-| `list_pending_drafts` | What's waiting for review, with the fields that changed. |
+| `upsert_school` | Create or partially update a school, then publish it. Geocodes the street address with Mapbox before the write. |
+| `set_school_schedule` | Replace a school's weekly schedule, then publish it. |
+| `upsert_instructor`, `upsert_affiliation` | Coaches and teams, published right away. |
+| `list_pending_drafts` | What isn't live (admin edits, or agent writes that couldn't be published), with the fields that changed. |
 | `find_possible_duplicates` | Is a gym found on the web already listed? Matches a similar name in the city, the same phone, website or Instagram, or being within 150 m. |
-| `add_gym_from_web` | Add a gym found on the web as a **draft** with its source pages (`sourceUrls`). Refuses a likely duplicate (`DUPLICATE_SUSPECTED`, with the candidates) unless the agent confirms it's a different gym. |
+| `add_gym_from_web` | Add a gym found on the web, live right away, with its source pages (`sourceUrls`). Refuses a likely duplicate (`DUPLICATE_SUSPECTED`, with the candidates) unless the agent confirms it's a different gym. |
 
-The **`find_new_gyms`** prompt (`{ city, area? }`) gives an agent with web search the whole loop: search, check duplicates, add drafts with sources, add schedules, report. Gyms it adds carry three private fields on the school (`origin: web-agent`, `sourceUrls`, `discoveredAt`), visible in the admin and never in public responses; the admin's **From the web** tab lists them until they're published.
+The **`find_new_gyms`** prompt (`{ city, area? }`) gives an agent with web search the whole loop: search, check duplicates, add gyms with sources, add schedules, report. Gyms it adds carry three private fields on the school (`origin: web-agent`, `sourceUrls`, `discoveredAt`), visible in the admin and never in public responses; the admin's **From the web** tab lists all of them, live or not, so a person can spot-check (and unpublish or fix) after the fact.
 
 ```mermaid
 sequenceDiagram
@@ -257,16 +257,17 @@ sequenceDiagram
   C->>M: upsert_school(name, citySlug, address, pricing…)
   M->>G: geocode the address
   G-->>M: longitude, latitude
-  M->>D: create or update the DRAFT
+  M->>D: create or update the draft
   D-->>M: slug (validated, normalized)
+  M->>D: publish it (services/publishing.ts)
+  M-->>C: status: published
   C->>M: set_school_schedule(slug, sessions)
-  C->>M: list_pending_drafts()
-  M-->>C: drafts and changed fields
-  P->>D: review and Publish
+  M->>D: write and publish
+  P->>D: spot-check in From the web; fix or unpublish
   Note over D: Only published versions reach the app
 ```
 
-No tool publishes, unpublishes, deletes or uploads media. Results stay under the MCP client's ~1 MB limit (`guard()` returns `RESULT_TOO_LARGE` with a hint), and validation failures come back as structured `VALIDATION_ERROR`s with the field path.
+**Agent writes go live** (the user's call, 2026-10-15): every write tool publishes what it changed, and its result says `status: published`, or `notPublishedBecause` when validation stops it. `MATFINDER_AUTO_PUBLISH=false` keeps agent writes as drafts for review instead. No tool unpublishes, deletes or uploads media. A gym's unknown visitor policy is `visitorsWelcome: null` (no default), which the app shows as "not listed" rather than "members only". Results stay under the MCP client's ~1 MB limit (`guard()` returns `RESULT_TOO_LARGE` with a hint), and validation failures come back as structured `VALIDATION_ERROR`s with the field path.
 
 ### Gym claims (the MatFinder plugin)
 

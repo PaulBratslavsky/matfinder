@@ -4,12 +4,18 @@ import register from './register';
 import routes from './routes';
 import services from './services';
 
-/** MatFinder: the MCP curation tools, the admin area for gyms (and, next, claims) and the homepage widgets. */
+/** MatFinder: the MCP curation tools, the admin area for gyms and claims, and the homepage widgets. */
 export default {
   register,
   bootstrap() {},
   destroy() {},
-  config: { default: {}, validator() {} },
+  config: {
+    // Agent writes (the MCP tools) are published right away; false keeps them as drafts for review.
+    default: { autoPublish: true },
+    validator(config: { autoPublish?: unknown }) {
+      if (typeof config.autoPublish !== 'boolean') throw new Error('matfinder: autoPublish must be true or false');
+    },
+  },
   controllers,
   routes,
   services,

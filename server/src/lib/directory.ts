@@ -78,7 +78,8 @@ export function toDirectoryItem(s: any, now: CityNow, claimed = false) {
     affiliation: s.affiliation?.name ?? null,
     styles: deriveStyles(s.schedule),
     programs: derivePrograms(s.schedule),
-    visitorsWelcome: s.pricing?.visitorsWelcome ?? false,
+    // null: the gym hasn't said (the app shows no visitor label).
+    visitorsWelcome: s.pricing?.visitorsWelcome ?? null,
     dropInFee: num(s.pricing?.dropInFee),
     currency: s.pricing?.currency ?? 'USD',
     todaySessions: toTodaySessions(s.schedule, now),

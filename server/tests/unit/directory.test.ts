@@ -66,7 +66,7 @@ describe('toDirectoryItem (public directory trimming)', () => {
 
   it('defaults missing pieces', () => {
     const bare = toDirectoryItem({ documentId: 'd', slug: 's', name: 'n', location: school.location }, wednesday);
-    expect(bare).toMatchObject({ logo: null, affiliation: null, neighborhood: null, visitorsWelcome: false, dropInFee: null, currency: 'USD', todaySessions: [], styles: [], programs: [] });
+    expect(bare).toMatchObject({ logo: null, affiliation: null, neighborhood: null, visitorsWelcome: null, dropInFee: null, currency: 'USD', todaySessions: [], styles: [], programs: [] });
   });
 });
 

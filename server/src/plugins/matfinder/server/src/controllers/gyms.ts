@@ -22,7 +22,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     ctx.body = await strapi.plugin('matfinder').service('gyms').summary();
   },
 
-  /** Gyms the web agent added that nobody has published yet. */
+  /** Every gym the web agent added, with whether it's live. */
   async fromWeb(ctx) {
     ctx.body = await strapi.plugin('matfinder').service('discovery').listFromWeb();
   },

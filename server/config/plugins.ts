@@ -1,4 +1,23 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+const MATFINDER = './src/plugins/matfinder';
+
+/**
+ * Strapi silently skips a plugin whose server build is missing (a failed or half-done `npm run build:plugin`), and
+ * booting without MatFinder deletes its data: the claims table and every Admin token grant for its MCP tools. Refuse to
+ * start instead. (`strapi develop` restarts on plugin source edits, so this happens mid-rebuild too.)
+ */
+function assertMatFinderBuilt() {
+  const entry = path.resolve(MATFINDER, 'dist/server/index.js');
+  if (!fs.existsSync(entry)) {
+    throw new Error(`The MatFinder plugin isn't built (${entry} is missing). Run \`npm run build:plugin\` in server/, then start Strapi again.`);
+  }
+}
+
 export default ({ env }) => {
+  assertMatFinderBuilt();
+
   // Optional, for plugin development: load a local strapi-plugin-map-box checkout instead of the npm package.
   const localMapBoxPath = env('MAP_BOX_PLUGIN_PATH');
 
@@ -10,7 +29,8 @@ export default ({ env }) => {
     'api-permissions': { enabled: true },
     // MatFinder's own plugin: the MCP curation tools, the admin area and the homepage widgets (src/plugins/matfinder).
     // Built to its dist/ by `npm run build:plugin`, which develop, build and postinstall run first.
-    matfinder: { enabled: true, resolve: './src/plugins/matfinder' },
+    // Agent writes (its MCP tools) go live right away; MATFINDER_AUTO_PUBLISH=false keeps them as drafts for review.
+    matfinder: { enabled: true, resolve: MATFINDER, config: { autoPublish: env.bool('MATFINDER_AUTO_PUBLISH', true) } },
     'map-box': {
       enabled: true,
       ...(localMapBoxPath ? { resolve: localMapBoxPath } : {}),

@@ -5,8 +5,9 @@ export const upsertInstructor: ToolDef = {
   name: 'upsert_instructor',
   title: 'Create or update an instructor',
   description:
-    'Create or partially update an instructor as a DRAFT. Only send the fields you want to change. Without a slug (or with an unknown one) it creates an instructor, which needs name and beltRank. Call list_reference_data first to reuse an existing instructor. Link instructors to schools with upsert_school.headInstructorSlugs.',
+    'Create or partially update an instructor, published right away. Only send the fields you want to change. Without a slug (or with an unknown one) it creates an instructor, which needs name and beltRank. Call list_reference_data first to reuse an existing instructor. Link instructors to schools with upsert_school.headInstructorSlugs.',
   write: true,
+  publishes: 'api::instructor.instructor',
   input: z.object({
     slug: slug.optional(),
     name: z.string().min(1).max(120).optional(),

@@ -3,7 +3,7 @@
   "info": { "displayName": "Pricing", "icon": "priceTag" },
   "options": {},
   "attributes": {
-    "visitorsWelcome": { "type": "boolean", "default": false },
+    "visitorsWelcome": { "type": "boolean" },
     "dropInFee": { "type": "decimal", "min": 0 },
     "dropInNotes": { "type": "string" },
     "freeTrial": { "type": "boolean", "default": false },

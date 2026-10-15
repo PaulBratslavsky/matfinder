@@ -128,21 +128,27 @@ describe('MCP (curator tools)', () => {
     expect(status === 401 || !!body?.error).toBe(true);
   });
 
-  it('upsert_school creates a draft that stays out of the directory', async (ctx) => {
+  it('upsert_school publishes the gym straight to the directory, and its updates too', async (ctx) => {
     if (!token) return ctx.skip();
     const r = await callTool(token, 'upsert_school', {
-      name: `Integration Draft Gym ${randomBytes(3).toString('hex')} (Demo)`,
+      name: `Integration Agent Gym ${randomBytes(3).toString('hex')} (Demo)`,
       citySlug: 'las-vegas',
       address: '1 Test Way, Las Vegas, NV',
       latitude: 36.17,
       longitude: -115.14,
     });
     expect(r.isError).toBe(false);
-    expect(r.data).toMatchObject({ created: true, status: 'never-published' });
-    const { data } = await (await get('/api/schools/directory?city=las-vegas')).json();
-    expect(data.schools.map((s: { slug: string }) => s.slug)).not.toContain(r.data.slug);
+    expect(r.data).toMatchObject({ created: true, status: 'published' });
+    expect(r.data).not.toHaveProperty('notPublishedBecause');
+    const directory = async () => (await (await get('/api/schools/directory?city=las-vegas')).json()).data.schools;
+    // No visitor policy given: unknown (null), not "members only".
+    expect((await directory()).find((s: { slug: string }) => s.slug === r.data.slug)).toMatchObject({ visitorsWelcome: null });
+
+    const u = await callTool(token, 'upsert_school', { slug: r.data.slug, pricing: { visitorsWelcome: true, dropInFee: 20 } });
+    expect(u.data).toMatchObject({ created: false, changedFields: ['pricing'], status: 'published' });
+    expect((await directory()).find((s: { slug: string }) => s.slug === r.data.slug)).toMatchObject({ visitorsWelcome: true, dropInFee: 20 });
     const pending = await callTool(token, 'list_pending_drafts', { type: 'school' });
-    expect(pending.data.items.map((i: { slug: string }) => i.slug)).toContain(r.data.slug);
+    expect(pending.data.items.map((i: { slug: string }) => i.slug)).not.toContain(r.data.slug);
   });
 
   it('set_school_schedule rejects end <= start with the field path', async (ctx) => {
@@ -196,7 +202,7 @@ describe('gyms from the web (MCP)', () => {
     expect(check.data.candidates).toEqual([]);
   });
 
-  it('adds a new gym as a draft with its sources, listed for review and kept out of public responses', async (ctx) => {
+  it('adds a new gym with its sources and publishes it, keeping the private fields out of public responses', async (ctx) => {
     if (!token) return ctx.skip();
     const name = `Integration Web Gym ${randomBytes(3).toString('hex')} (Demo)`;
     const r = await callTool(token, 'add_gym_from_web', {
@@ -209,23 +215,36 @@ describe('gyms from the web (MCP)', () => {
       sourceUrls: ['https://example.com/integration-web-gym', 'https://maps.example.com/place/123'],
     });
     expect(r.isError).toBe(false);
-    expect(r.data).toMatchObject({ status: 'never-published', sourceUrls: ['https://example.com/integration-web-gym', 'https://maps.example.com/place/123'] });
+    expect(r.data).toMatchObject({ status: 'published', sourceUrls: ['https://example.com/integration-web-gym', 'https://maps.example.com/place/123'] });
+
+    const sched = await callTool(token, 'set_school_schedule', {
+      slug: r.data.slug,
+      sessions: [{ day: 'tue', start: '18:00', end: '19:30', classType: 'fundamentals', style: 'gi' }],
+    });
+    expect(sched.data).toMatchObject({ slug: r.data.slug, sessionCount: 1, status: 'published' });
 
     const fromWeb = await (await fetch(`${API}/matfinder/from-web`, asAdmin())).json();
     const item = fromWeb.items.find((g: { slug: string }) => g.slug === r.data.slug);
-    expect(item).toMatchObject({ name, sourceUrls: r.data.sourceUrls, city: { slug: 'las-vegas' } });
+    expect(item).toMatchObject({ name, sourceUrls: r.data.sourceUrls, city: { slug: 'las-vegas' }, status: 'published' });
     expect(item.discoveredAt).toEqual(expect.any(String));
 
     const summary = await (await fetch(`${API}/matfinder/summary`, asAdmin())).json();
-    expect(summary.gyms.fromWeb).toBeGreaterThanOrEqual(1);
+    expect(summary.gyms.fromWeb).toMatchObject({ total: fromWeb.total, notLive: fromWeb.notLive, thisWeek: fromWeb.thisWeek });
+    expect(summary.gyms.fromWeb.thisWeek).toBeGreaterThanOrEqual(1);
     const gyms = await (await fetch(`${API}/matfinder/gyms?search=${encodeURIComponent(name)}`, asAdmin())).json();
     expect(gyms.items[0]).toMatchObject({ slug: r.data.slug, origin: 'web-agent' });
 
-    // Never published, so not in the public directory; and the private fields never appear in public responses.
+    // Live in the public directory and on its page, without the private fields.
     const dir = await (await get('/api/schools/directory?city=las-vegas')).json();
-    expect(dir.data.schools.some((s: { slug: string }) => s.slug === r.data.slug)).toBe(false);
-    const page = await (await get('/api/schools/slug/sample-summerlin-bjj-demo', await signUp())).json();
-    for (const field of ['origin', 'sourceUrls', 'discoveredAt']) expect(page.data).not.toHaveProperty(field);
+    const listed = dir.data.schools.find((s: { slug: string }) => s.slug === r.data.slug);
+    expect(listed).toBeTruthy();
+    const page = await (await get(`/api/schools/slug/${r.data.slug}`, await signUp())).json();
+    expect(page.data).toMatchObject({ slug: r.data.slug, name });
+    expect(page.data.schedule).toHaveLength(1);
+    for (const field of ['origin', 'sourceUrls', 'discoveredAt']) {
+      expect(listed).not.toHaveProperty(field);
+      expect(page.data).not.toHaveProperty(field);
+    }
   });
 
   it('offers the find_new_gyms prompt', async (ctx) => {

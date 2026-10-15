@@ -2,7 +2,7 @@ import { Badge, Box, Flex, Link, Table, Tbody, Td, Th, Thead, Tr, Typography } f
 import { useFetchClient, useNotification } from '@strapi/strapi/admin';
 import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { editGymPath, formatDay } from '../status';
+import { STATUS_LABELS, editGymPath, formatDay, type GymStatus } from '../status';
 
 type WebGym = {
   documentId: string;
@@ -12,6 +12,7 @@ type WebGym = {
   city: { slug: string; name: string } | null;
   sourceUrls: string[];
   discoveredAt: string | null;
+  status: GymStatus;
   possibleDuplicates: { slug: string; name: string; reasons: string[] }[];
 };
 
@@ -25,8 +26,8 @@ const hostOf = (url: string) => {
 };
 
 /**
- * Gyms the web agent added that nobody has published yet. Review opens the gym in the Content Manager, where you check
- * the facts against the sources and publish it, or delete it.
+ * Every gym the web agent added, newest first. They go live as soon as the agent adds them (unless autoPublish is off),
+ * so this is where you spot-check them: the name opens the gym in the Content Manager to correct, unpublish or delete it.
  */
 export function FromWebTab({ onCount }: { onCount?: (n: number) => void }) {
   const { get } = useFetchClient();
@@ -38,9 +39,9 @@ export function FromWebTab({ onCount }: { onCount?: (n: number) => void }) {
     get('/matfinder/from-web')
       .then((res) => {
         if (!alive) return;
-        const data = res.data as { items: WebGym[]; total: number };
+        const data = res.data as { items: WebGym[]; notLive: number };
         setItems(data.items);
-        onCount?.(data.total);
+        onCount?.(data.notLive);
       })
       .catch(() => alive && toggleNotification({ type: 'danger', message: "Couldn't load the gyms from the web. Try again." }));
     return () => {
@@ -52,14 +53,14 @@ export function FromWebTab({ onCount }: { onCount?: (n: number) => void }) {
     return (
       <Box padding={6} background="neutral0" hasRadius>
         <Typography textColor="neutral600">
-          Nothing to review. Gyms an agent adds with add_gym_from_web show up here until they're published.
+          No gyms from the web yet. Gyms an agent adds with add_gym_from_web show up here.
         </Typography>
       </Box>
     );
   }
 
   return (
-    <Table colCount={5} rowCount={(items?.length ?? 0) + 1}>
+    <Table colCount={6} rowCount={(items?.length ?? 0) + 1}>
       <Thead>
         <Tr>
           <Th>
@@ -67,6 +68,9 @@ export function FromWebTab({ onCount }: { onCount?: (n: number) => void }) {
           </Th>
           <Th>
             <Typography variant="sigma">Area</Typography>
+          </Th>
+          <Th>
+            <Typography variant="sigma">Status</Typography>
           </Th>
           <Th>
             <Typography variant="sigma">Sources</Typography>
@@ -89,6 +93,9 @@ export function FromWebTab({ onCount }: { onCount?: (n: number) => void }) {
             </Td>
             <Td>
               <Typography>{[g.neighborhood, g.city?.name].filter(Boolean).join(', ')}</Typography>
+            </Td>
+            <Td>
+              <Badge variant={STATUS_LABELS[g.status].variant}>{STATUS_LABELS[g.status].label}</Badge>
             </Td>
             <Td>
               <Flex direction="column" alignItems="flex-start" gap={1}>

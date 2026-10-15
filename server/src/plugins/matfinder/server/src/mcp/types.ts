@@ -9,6 +9,8 @@ export type ToolDef = {
   /** Hand-written: what the tool is for and when to use it. */
   description: string;
   write: boolean;
+  /** For writes: the content type it changes. Its draft is published afterwards (see services/publishing.ts). */
+  publishes?: 'api::school.school' | 'api::instructor.instructor' | 'api::affiliation.affiliation';
   input: any;
   output: any;
   /** Shown with RESULT_TOO_LARGE: how to ask for less. */
