@@ -600,6 +600,7 @@ export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Blocks;
+    discoveredAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     gallery: Schema.Attribute.Media<'images', true>;
     headInstructors: Schema.Attribute.Relation<
       'manyToMany',
@@ -622,6 +623,9 @@ export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
         maxLength: 120;
       }>;
     neighborhood: Schema.Attribute.String;
+    origin: Schema.Attribute.Enumeration<['manual', 'web-agent']> &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<'manual'>;
     postalCode: Schema.Attribute.String;
     pricing: Schema.Attribute.Component<'school.pricing', false>;
     publishedAt: Schema.Attribute.DateTime;
@@ -631,6 +635,7 @@ export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
         maxLength: 280;
       }>;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    sourceUrls: Schema.Attribute.JSON & Schema.Attribute.Private;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1224,6 +1229,65 @@ export interface PluginI18NLocale extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface PluginMatfinderClaim extends Struct.CollectionTypeSchema {
+  collectionName: 'matfinder_claims';
+  info: {
+    description: "A gym owner's request to claim a gym, reviewed by hand on the MatFinder admin page.";
+    displayName: 'Claim';
+    pluralName: 'claims';
+    singularName: 'claim';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    adminNote: Schema.Attribute.Text & Schema.Attribute.Private;
+    contactedAt: Schema.Attribute.DateTime;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    decidedAt: Schema.Attribute.DateTime;
+    email: Schema.Attribute.Email & Schema.Attribute.Required;
+    handledBy: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::matfinder.claim'
+    > &
+      Schema.Attribute.Private;
+    message: Schema.Attribute.Text;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    phone: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    role: Schema.Attribute.Enumeration<
+      ['owner', 'manager', 'head_instructor', 'staff']
+    > &
+      Schema.Attribute.Required;
+    schoolDocumentId: Schema.Attribute.String & Schema.Attribute.Required;
+    schoolName: Schema.Attribute.String & Schema.Attribute.Required;
+    schoolSlug: Schema.Attribute.String & Schema.Attribute.Required;
+    status: Schema.Attribute.Enumeration<
+      ['pending', 'contacted', 'accepted', 'rejected', 'withdrawn']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    userId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface PluginReviewWorkflowsWorkflow
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_workflows';
@@ -1458,6 +1522,7 @@ declare module '@strapi/strapi' {
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
+      'plugin::matfinder.claim': PluginMatfinderClaim;
       'plugin::review-workflows.workflow': PluginReviewWorkflowsWorkflow;
       'plugin::review-workflows.workflow-stage': PluginReviewWorkflowsWorkflowStage;
       'plugin::upload.file': PluginUploadFile;

@@ -45,7 +45,8 @@ function ThemedStack() {
           contentStyle: { backgroundColor: colors.bg },
         }}>
         <Stack.Screen name="index" options={{ headerShown: false, title: 'MatFinder' }} />
-        <Stack.Screen name="schools/[slug]" options={{ headerShown: false, title: 'Gym' }} />
+        <Stack.Screen name="schools/[slug]/index" options={{ headerShown: false, title: 'Gym' }} />
+        <Stack.Screen name="schools/[slug]/claim" options={{ title: 'Claim this gym' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
         <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />

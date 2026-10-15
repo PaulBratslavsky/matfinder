@@ -172,6 +172,9 @@ erDiagram
 | `GET /api/cities` | Everyone | Core find. |
 | `/api/auth/*` | Everyone | Better Auth: sign up, sign in, session, sign out. |
 | `POST /mcp` | Admin tokens holding the MatFinder MCP actions | The 10 curation tools and the `find_new_gyms` prompt. |
+| `POST /api/matfinder/claims` | Signed-in users (Authenticated role) | `{ schoolSlug, role, phone, message? }`: claim a published gym. `409 ALREADY_CLAIMED` / `CLAIM_OPEN`, `429 TOO_MANY_CLAIMS`, `422` for a bad phone. |
+| `GET /api/matfinder/claims/mine?school=` | Signed-in users | The user's latest claim status on that gym. |
+| `/matfinder/*` (admin API) | Admins with `plugin::matfinder.read` (and `claims.review` to act) | Gyms, totals, From the web, the claims board and its actions. |
 
 The gate is enforced on the server, not in the app: `plugin-api-permissions` grants are seeded in `bootstrap()` (`server/src/lib/permissions.ts`) and nothing else is granted (no core CRUD on schools, instructors or affiliations, nothing on users). The public directory is built field by field (`toDirectoryItem` in `server/src/lib/directory.ts`): the full schedule is read to work out today's sessions, styles and programs, but only today's sessions leave the server.
 
@@ -264,6 +267,12 @@ sequenceDiagram
 ```
 
 No tool publishes, unpublishes, deletes or uploads media. Results stay under the MCP client's ~1 MB limit (`guard()` returns `RESULT_TOO_LARGE` with a hint), and validation failures come back as structured `VALIDATION_ERROR`s with the field path.
+
+### Gym claims (the MatFinder plugin)
+
+A gym owner (or manager, head instructor, staff) taps **Claim it** on the gym page (`/schools/[slug]/claim`, account only) and sends their role, a phone number and an optional note. The claim waits on the admin's **MatFinder → Claims** tab, where someone with `plugin::matfinder.claims.review` calls them, marks it *contacted*, then **accepts** or **rejects** it (a rejection, or later removing the owner, needs a note). An accepted claim makes the gym `claimed: true` in the directory and on the gym page ("Claimed by the owner"); who claimed it, their phone and notes never leave the admin.
+
+Rules (`server/src/plugins/matfinder/server/src/services/claims.ts`, states in `domain/claims.ts`): one open claim per user per gym, at most 5 open per user, one accepted claim per gym (accepting closes that gym's other open claims), and a claimed gym can't be claimed again until the owner is removed. Claims store the gym's documentId, slug and name rather than a relation, so a gym's draft and published versions both match. The **Claims to review** homepage widget shows the counts and the newest claims.
 
 ## 8. The app: screens and data flow
 

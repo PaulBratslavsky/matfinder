@@ -1,4 +1,4 @@
-import { PinMap } from '@strapi/icons';
+import { PinMap, SealCheck } from '@strapi/icons';
 import { PERMISSIONS } from './permissions';
 import { PLUGIN_ID } from './pluginId';
 
@@ -21,6 +21,16 @@ export default {
       link: { label: { id: `${PLUGIN_ID}.widget.directory.link`, defaultMessage: 'Open MatFinder' }, href: `/plugins/${PLUGIN_ID}` },
       permissions: PERMISSIONS.read,
       component: async () => (await import('./components/DirectoryWidget')).default,
+    });
+
+    app.widgets.register({
+      id: 'claims',
+      pluginId: PLUGIN_ID,
+      icon: SealCheck,
+      title: { id: `${PLUGIN_ID}.widget.claims.title`, defaultMessage: 'Claims to review' },
+      link: { label: { id: `${PLUGIN_ID}.widget.claims.link`, defaultMessage: 'Open claims' }, href: `/plugins/${PLUGIN_ID}?tab=claims` },
+      permissions: PERMISSIONS.read,
+      component: async () => (await import('./components/ClaimsWidget')).default,
     });
 
     app.registerPlugin({ id: PLUGIN_ID, name: 'MatFinder' });

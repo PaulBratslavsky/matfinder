@@ -13,6 +13,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The server's error name, e.g. ALREADY_CLAIMED. */
+    public code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -42,19 +44,30 @@ export function setCookieProvider(fn: () => string | Promise<string>) {
  */
 export async function apiGet<T>(path: string, query?: Record<string, unknown>): Promise<T> {
   const search = query ? qs.stringify(query, { addQueryPrefix: true, encodeValuesOnly: true }) : '';
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  return request<T>(`${path}${search}`, { method: 'GET' });
+}
+
+/** POST JSON to a Strapi path, with the session like apiGet. */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'POST', body: JSON.stringify(body), json: true });
+}
+
+async function request<T>(path: string, opts: { method: 'GET' | 'POST'; body?: string; json?: boolean }): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json', ...(opts.json ? { 'Content-Type': 'application/json' } : {}) };
   if (Platform.OS !== 'web' && cookieProvider) {
     const cookie = await cookieProvider();
     if (cookie) headers.Cookie = cookie;
   }
-  const res = await fetch(`${apiBase()}${path}${search}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
+    method: opts.method,
     headers,
+    body: opts.body,
     credentials: Platform.OS === 'web' ? 'include' : 'omit',
   });
   if (res.status === 401 || res.status === 403) throw new AuthRequiredError(res.status);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new ApiError(res.status, body?.error?.message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, body?.error?.message ?? `Request failed (${res.status})`, body?.error?.name);
   }
   return res.json() as Promise<T>;
 }

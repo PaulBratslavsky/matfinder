@@ -11,7 +11,14 @@ const USER_UID = 'plugin::better-auth.user';
  */
 export const GRANTS: Record<'public' | 'authenticated', string[]> = {
   public: ['api::school.school.directory', 'api::city.city.find'],
-  authenticated: ['api::school.school.directory', 'api::city.city.find', 'api::school.school.bySlug'],
+  authenticated: [
+    'api::school.school.directory',
+    'api::city.city.find',
+    'api::school.school.bySlug',
+    // The MatFinder plugin's claim routes (server/src/plugins/matfinder): claim a gym, see your claim's status.
+    'plugin::matfinder.claim.create',
+    'plugin::matfinder.claim.mine',
+  ],
 };
 
 // The plugin's types don't include its own content types, hence the casts.

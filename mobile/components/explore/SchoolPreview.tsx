@@ -85,6 +85,7 @@ export function SchoolPreview({
       <NextSessionCard school={school} state={state} now={now} />
 
       <View style={styles.chips}>
+        {school.claimed && <Chip label="Claimed" variant="live" icon="checkmark-circle" />}
         {school.visitorsWelcome ? <Chip label="Visitors welcome" variant="solid" /> : <Chip label="Members only" icon="lock-closed-outline" />}
         {!!fee && <Chip label={fee} />}
         {school.styles.map((s) => (
