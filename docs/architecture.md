@@ -42,7 +42,7 @@ flowchart LR
   end
 
   subgraph cloud["Strapi Cloud"]
-    strapi["Strapi 5.56<br/>REST · Better Auth · MCP"]
+    strapi["Strapi 5.58<br/>REST · Better Auth · MCP"]
     pg[("Postgres")]
   end
 
@@ -64,7 +64,7 @@ flowchart LR
 
 | Piece | Tech | Where |
 |---|---|---|
-| Backend | Strapi 5.56.0, TypeScript | `server/`, deployed to Strapi Cloud (Postgres); SQLite locally |
+| Backend | Strapi 5.58.0, TypeScript | `server/`, deployed to Strapi Cloud (Postgres); SQLite locally |
 | End-user auth | Better Auth via `@strapi-community/plugin-better-auth` (beta), roles via `plugin-api-permissions` (alpha) | `server/src/lib/auth.ts` |
 | Curation | Strapi's built-in MCP server + 8 custom tools | `server/src/mcp/` |
 | App | Expo SDK 57, expo-router, React Native 0.86, NativeWind 4, React Query 5 | `mobile/`, web deployed to Vercel |
