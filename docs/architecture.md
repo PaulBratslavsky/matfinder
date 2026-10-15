@@ -66,7 +66,7 @@ flowchart LR
 |---|---|---|
 | Backend | Strapi 5.58.0, TypeScript | `server/`, deployed to Strapi Cloud (Postgres); SQLite locally |
 | End-user auth | Better Auth via `@strapi-community/plugin-better-auth` (beta), roles via `plugin-api-permissions` (alpha) | `server/src/lib/auth.ts` |
-| Curation | Strapi's built-in MCP server + 8 custom tools | `server/src/mcp/` |
+| Curation | Strapi's built-in MCP server + 8 custom tools, an admin page and a homepage widget | `server/src/plugins/matfinder/` (a local plugin) |
 | App | Expo SDK 57, expo-router, React Native 0.86, NativeWind 4, React Query 5 | `mobile/`, web deployed to Vercel |
 | Maps | `@rnmapbox/maps` (native), `react-map-gl` + `mapbox-gl` 3 (web), `strapi-plugin-map-box` (admin field) | `mobile/components/LocationMap*.tsx` |
 
@@ -82,7 +82,7 @@ matt-finder/
 │   ├── src/components/   schedule.session, school.pricing / contact / amenities
 │   ├── src/document-middlewares/   rules that run on every write (slug, validation, normalizing, user role)
 │   ├── src/lib/          auth, directory (public shape), drafts, geocode, permissions, time, upsert
-│   ├── src/mcp/          tool registration, guard, schemas, tools/*
+│   ├── src/plugins/matfinder/   the MatFinder plugin: MCP tools, admin page (Gyms), Gym directory widget, admin API
 │   ├── src/seed/         fictional Las Vegas sample data (SEED_SAMPLE_DATA=true, dev only)
 │   └── tests/            unit (Vitest) and integration (against the throwaway Strapi)
 └── mobile/               Expo app
@@ -224,7 +224,7 @@ flowchart LR
 
 ## 7. Curating listings with Claude (MCP)
 
-Strapi's MCP server is on (`config/server.ts`, `MCP_ENABLED`). `server/src/mcp/index.ts` registers one **admin action per tool** in `register()`, so a curator's admin token can be granted exactly these tools and none of the generic content-manager ones.
+Strapi's MCP server is on (`config/server.ts`, `MCP_ENABLED`). The tools live in the MatFinder plugin: `server/src/plugins/matfinder/server/src/mcp/index.ts` registers one **admin action per tool** in `register()` (`plugin::matfinder.mcp.<tool>`, under Plugins → MatFinder), so a curator's admin token can be granted exactly these tools and none of the generic content-manager ones. The plugin also adds the admin's **MatFinder** page (every gym and its publish status) and a **Gym directory** homepage widget; both need the `plugin::matfinder.read` permission.
 
 | Tool | Does |
 |---|---|

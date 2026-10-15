@@ -1,4 +1,3 @@
-import { ToolError } from '../lib/errors';
 
 /** MCP clients reject results over ~1 MB, and the payload is sent twice (`content` text + `structuredContent`). */
 export const WIRE_LIMIT_BYTES = 950_000;
@@ -28,8 +27,16 @@ type Path = (string | number)[];
  * (the M2 middlewares, schema validation) becomes VALIDATION_ERROR with its field path. Anything else is rethrown so
  * Strapi logs it and reports a generic failure.
  */
+/**
+ * The app's services throw `ToolError` (server/src/lib/errors.ts). This plugin is bundled separately, so it can't
+ * share that class for `instanceof`: match on its name and code instead.
+ */
+type ToolErrorLike = { name: 'ToolError'; code: string; message: string; details?: Record<string, unknown> };
+const isToolError = (e: unknown): e is ToolErrorLike =>
+  (e as { name?: unknown })?.name === 'ToolError' && typeof (e as { code?: unknown }).code === 'string';
+
 export function toErrorResult(e: unknown, mapPath: (path: Path) => Path = (p) => p): ToolResult {
-  if (e instanceof ToolError) return errorResult({ error: e.code, message: e.message, ...e.details });
+  if (isToolError(e)) return errorResult({ error: e.code, message: e.message, ...e.details });
   const err = e as { name?: string; message?: string; details?: { path?: Path; errors?: { path?: Path; message?: string }[] } };
   if (err?.name === 'ValidationError') {
     const path = err.details?.path ?? err.details?.errors?.[0]?.path;
