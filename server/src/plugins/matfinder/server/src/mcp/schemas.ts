@@ -32,7 +32,11 @@ export const upsertOutput = z.object({
   created: z.boolean(),
   changedFields: z.array(z.string()),
   status: draftStatus,
+  notPublishedBecause: z.string().optional(),
 });
+
+/** Added to every write's result: published means it's live in the app. */
+export const liveOutput = { status: draftStatus, notPublishedBecause: z.string().optional() };
 
 export const sessionOut = z.object({
   day,

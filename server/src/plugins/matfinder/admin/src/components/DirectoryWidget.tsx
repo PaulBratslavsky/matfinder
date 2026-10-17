@@ -3,7 +3,7 @@ import { Widget, useFetchClient } from '@strapi/strapi/admin';
 import { useEffect, useState } from 'react';
 import { startPolling } from '../poll';
 
-type Summary = { gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number; fromWeb: number } };
+type Summary = { gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number; fromWeb: { thisWeek: number } } };
 
 function Tile({ value, label }: { value: number; label: string }) {
   return (
@@ -20,7 +20,7 @@ function Tile({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** Homepage widget: how many gyms are published, waiting with changes, or still drafts. */
+/** Homepage widget: how many gyms are published, added by the agent this week, waiting with changes, or still drafts. */
 export default function DirectoryWidget() {
   const { get } = useFetchClient();
   const [data, setData] = useState<Summary | null>(null);
@@ -51,7 +51,7 @@ export default function DirectoryWidget() {
         <Tile value={g.published} label="Published" />
       </Grid.Item>
       <Grid.Item col={1}>
-        <Tile value={g.fromWeb} label="New from the web" />
+        <Tile value={g.fromWeb.thisWeek} label="From the web this week" />
       </Grid.Item>
       <Grid.Item col={1}>
         <Tile value={g.unpublishedChanges} label="Changes waiting" />

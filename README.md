@@ -1,6 +1,6 @@
 # MatFinder
 
-A map-first directory of Brazilian Jiu-Jitsu schools, starting in Las Vegas. Browse the map and filter by *training today*, *visitors welcome*, and *Gi / No-Gi*; sign in for full school pages. Listings are curated through Claude + Strapi's MCP server (drafts only, a human publishes).
+A map-first directory of Brazilian Jiu-Jitsu schools, starting in Las Vegas. Browse the map and filter by *training today*, *visitors welcome*, and *Gi / No-Gi*; sign in for full school pages. Listings are curated through Claude + Strapi's MCP server: an agent finds gyms on the web and adds them, live right away, with the pages it found them on.
 
 **Status:** proof of concept. Every milestone is built and open as stacked pull requests; deployment is next. Start here:
 

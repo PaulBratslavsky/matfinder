@@ -19,7 +19,8 @@ export type DirectorySchool = {
   affiliation: string | null;
   styles: ('gi' | 'nogi')[];
   programs: ClassType[];
-  visitorsWelcome: boolean;
+  /** null: the gym hasn't said. */
+  visitorsWelcome: boolean | null;
   dropInFee: number | null;
   currency: string;
   todaySessions: Session[];
@@ -84,7 +85,7 @@ export type SchoolPage = {
   affiliation: { name: string; slug: string; website: string | null; logo: Media | null } | null;
   headInstructors: { name: string; slug: string; beltRank: BeltRank; degree: number | null; photo: Media | null; bio: string | null }[];
   pricing: {
-    visitorsWelcome: boolean;
+    visitorsWelcome: boolean | null;
     dropInFee: number | null;
     dropInNotes: string | null;
     freeTrial: boolean;

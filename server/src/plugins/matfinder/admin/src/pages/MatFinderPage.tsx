@@ -16,12 +16,12 @@ export default function MatFinderPage() {
   const [params, setParams] = useSearchParams();
   const tab = tabFromQuery(params.get('tab'));
   const [counts, setCounts] = useState<Partial<Record<TabId, number>>>({});
-  // Tab badges: claims waiting for review and unreviewed gyms from the web.
+  // Tab badges: claims waiting for review, and gyms from the web that aren't live.
   const loadCounts = useCallback(() => {
     get('/matfinder/summary')
       .then((res) => {
-        const s = res.data as { gyms: { fromWeb: number }; claims: { pending: number; contacted: number } };
-        setCounts({ claims: s.claims.pending + s.claims.contacted, 'from-web': s.gyms.fromWeb });
+        const s = res.data as { gyms: { fromWeb: { notLive: number } }; claims: { pending: number; contacted: number } };
+        setCounts({ claims: s.claims.pending + s.claims.contacted, 'from-web': s.gyms.fromWeb.notLive });
       })
       .catch(() => {});
   }, [get]);
@@ -32,7 +32,7 @@ export default function MatFinderPage() {
     <Page.Protect permissions={PERMISSIONS.read}>
       <Page.Main>
         <Page.Title>MatFinder</Page.Title>
-        <Layouts.Header title="MatFinder" subtitle="Every gym in the directory, owners' claims, and the gyms found on the web that are waiting for review." />
+        <Layouts.Header title="MatFinder" subtitle="Every gym in the directory, owners' claims, and the gyms the agent found on the web." />
         <Layouts.Content>
           <Tabs.Root value={tab} onValueChange={(v: string) => setParams({ tab: v }, { replace: true })}>
             <Tabs.List aria-label="MatFinder sections">

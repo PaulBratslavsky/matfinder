@@ -5,7 +5,7 @@ export const listPendingDrafts: ToolDef = {
   name: 'list_pending_drafts',
   title: 'List pending drafts',
   description:
-    "List what's waiting for review: schools, instructors and affiliations that were never published or have unpublished changes, newest first, each with the fields that differ from the published version. A person publishes them in the Strapi admin.",
+    "List what isn't live: schools, instructors and affiliations that were never published or have unpublished changes (edits made in the admin, or agent writes that could not be published), newest first, each with the fields that differ from the published version.",
   write: false,
   input: z.object({
     type: z.enum(['school', 'instructor', 'affiliation']).optional(),

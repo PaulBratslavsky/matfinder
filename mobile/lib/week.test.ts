@@ -117,4 +117,10 @@ describe('can I train here tonight?', () => {
       { ok: null, strong: 'Drop-in price not listed', rest: ': ask the gym' },
     ]);
   });
+
+  it("doesn't call a gym members-only when it hasn't said", () => {
+    const items = visitChecklist({ pricing: { ...pricing, visitorsWelcome: null }, amenities }, null);
+    expect(items[0]).toEqual({ ok: null, strong: 'Visitor policy not listed', rest: ': ask the gym' });
+    expect(visitChecklist({ pricing: null, amenities: null }, null)[0]).toEqual(items[0]);
+  });
 });

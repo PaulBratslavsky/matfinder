@@ -96,8 +96,7 @@ export interface SchoolPricing extends Struct.ComponentSchema {
         },
         number
       >;
-    visitorsWelcome: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
+    visitorsWelcome: Schema.Attribute.Boolean;
   };
 }
 

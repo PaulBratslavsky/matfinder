@@ -1,4 +1,4 @@
-import { draftStatus, str, z } from '../schemas';
+import { liveOutput, str, z } from '../schemas';
 import type { ToolDef } from '../types';
 import { lookupInput } from './find-possible-duplicates';
 
@@ -6,8 +6,9 @@ export const addGymFromWeb: ToolDef = {
   name: 'add_gym_from_web',
   title: 'Add a gym found on the web',
   description:
-    "Add a BJJ gym you found on the web as a DRAFT, with the pages you found it on (sourceUrls). A person reviews and publishes it in the Strapi admin. Only send facts that appear on those pages; leave out anything you'd have to guess. It checks for duplicates first and returns DUPLICATE_SUSPECTED with the candidates if the gym looks already listed; if you're sure it's a different gym, call again with confirmNotDuplicate: true. Then add the weekly schedule with set_school_schedule and pricing or coaches with upsert_school / upsert_instructor, if the pages give them.",
+    "Add a BJJ gym you found on the web, with the pages you found it on (sourceUrls). It goes live in the app right away, with no review, so only send facts that appear on those pages and leave out anything you'd have to guess. The result's status is published once it's live; notPublishedBecause says why if it isn't (e.g. the address could not be located: fix it with upsert_school). It checks for duplicates first and returns DUPLICATE_SUSPECTED with the candidates if the gym looks already listed; if you're sure it's a different gym, call again with confirmNotDuplicate: true. Then add the weekly schedule with set_school_schedule and pricing or coaches with upsert_school / upsert_instructor, if the pages give them.",
   write: true,
+  publishes: 'api::school.school',
   input: z.object({
     ...lookupInput,
     address: str.describe('Street address, as written on the source page'),
@@ -16,7 +17,7 @@ export const addGymFromWeb: ToolDef = {
     shortDescription: z.string().max(280).optional().describe("One or two sentences in your own words, from the gym's own description"),
     confirmNotDuplicate: z.boolean().default(false).describe('Set only after checking that the suspected duplicates are different gyms'),
   }),
-  output: z.object({ documentId: z.string(), slug: z.string(), status: draftStatus, sourceUrls: z.array(z.string()) }),
+  output: z.object({ documentId: z.string(), slug: z.string(), sourceUrls: z.array(z.string()), ...liveOutput }),
   shrinkHint: 'The result is unexpectedly large; send fewer sourceUrls.',
   run: (strapi, args) => strapi.plugin('matfinder').service('discovery').addGymFromWeb(args),
 };

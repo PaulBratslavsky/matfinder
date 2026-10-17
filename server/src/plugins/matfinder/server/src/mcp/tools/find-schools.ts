@@ -5,7 +5,7 @@ export const findSchools: ToolDef = {
   name: 'find_schools',
   title: 'Find schools',
   description:
-    'Search BJJ school listings (draft versions, with their publish status). Use it to check whether a school already exists before upsert_school, to find listings waiting for review, or to find stale listings with staleDays (lastVerifiedAt older than N days, or never verified). Paged: page (from 1) and limit (max 50).',
+    'Search BJJ school listings (draft versions, with their publish status). Use it to check whether a school already exists before upsert_school, to find listings that are not live, or to find stale listings with staleDays (lastVerifiedAt older than N days, or never verified). Paged: page (from 1) and limit (max 50).',
   write: false,
   input: z.object({
     search: str.optional().describe('Case-insensitive match on name, neighborhood or postal code'),
