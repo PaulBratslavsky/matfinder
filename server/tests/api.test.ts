@@ -9,7 +9,18 @@ import { DIRECTORY_FIELDS } from '../src/lib/directory';
 
 const API = (process.env.API_URL ?? 'http://localhost:1342').replace(/\/$/, '');
 const WEB_ORIGIN = 'http://localhost:8083';
-const TOOLS = ['list_reference_data', 'find_schools', 'get_school_draft', 'upsert_school', 'set_school_schedule', 'upsert_instructor', 'upsert_affiliation', 'list_pending_drafts'];
+const TOOLS = [
+  'list_reference_data',
+  'find_schools',
+  'get_school_draft',
+  'upsert_school',
+  'set_school_schedule',
+  'upsert_instructor',
+  'upsert_affiliation',
+  'list_pending_drafts',
+  'find_possible_duplicates',
+  'add_gym_from_web',
+];
 
 const get = (path: string, cookie?: string) => fetch(`${API}${path}`, { headers: cookie ? { cookie } : {} });
 
@@ -106,7 +117,7 @@ describe('MCP (curator tools)', () => {
     token = (await res.json()).data.accessKey;
   });
 
-  it('tools/list with the curator token shows exactly the 8 MatFinder tools', async (ctx) => {
+  it('tools/list with the curator token shows exactly the 10 MatFinder tools', async (ctx) => {
     if (!token) return ctx.skip();
     const { body } = await mcp(token, 'tools/list');
     expect(body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([...TOOLS].sort());
@@ -142,6 +153,87 @@ describe('MCP (curator tools)', () => {
     });
     expect(r.isError).toBe(true);
     expect(r.error).toMatchObject({ error: 'VALIDATION_ERROR', path: ['sessions', 0, 'end'] });
+  });
+});
+
+describe('gyms from the web (MCP)', () => {
+  let token: string | null = null;
+  const jwt = () => inject('adminJwt');
+  const asAdmin = () => ({ headers: { Authorization: `Bearer ${jwt()}` } });
+
+  beforeAll(async () => {
+    if (!jwt()) return;
+    const res = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({
+        name: `it-web-agent-${randomBytes(3).toString('hex')}`,
+        lifespan: null,
+        adminPermissions: TOOLS.map((t) => ({ action: `plugin::matfinder.mcp.${t.replace(/_/g, '-')}` })),
+      }),
+    });
+    expect(res.status).toBe(201);
+    token = (await res.json()).data.accessKey;
+  });
+
+  it('flags a gym that is already listed', async (ctx) => {
+    if (!token) return ctx.skip();
+    const r = await callTool(token, 'add_gym_from_web', {
+      citySlug: 'las-vegas',
+      name: 'Summerlin Gracie Jiu-Jitsu',
+      address: '1 Sample Way, Las Vegas, NV',
+      phone: '(702) 555-0101',
+      latitude: 36.17,
+      longitude: -115.14,
+      sourceUrls: ['https://example.com/summerlin'],
+    });
+    expect(r.isError).toBe(true);
+    expect(r.error.error).toBe('DUPLICATE_SUSPECTED');
+    expect(r.error.candidates.map((c: { slug: string }) => c.slug)).toContain('sample-summerlin-bjj-demo');
+
+    const check = await callTool(token, 'find_possible_duplicates', { citySlug: 'las-vegas', name: 'Nothing Alike Grappling', latitude: 36.4, longitude: -115.6 });
+    expect(check.isError).toBe(false);
+    expect(check.data.candidates).toEqual([]);
+  });
+
+  it('adds a new gym as a draft with its sources, listed for review and kept out of public responses', async (ctx) => {
+    if (!token) return ctx.skip();
+    const name = `Integration Web Gym ${randomBytes(3).toString('hex')} (Demo)`;
+    const r = await callTool(token, 'add_gym_from_web', {
+      citySlug: 'las-vegas',
+      name,
+      address: '99 Web Way, Las Vegas, NV',
+      latitude: 36.29,
+      longitude: -115.29,
+      website: 'https://example.com/integration-web-gym',
+      sourceUrls: ['https://example.com/integration-web-gym', 'https://maps.example.com/place/123'],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.data).toMatchObject({ status: 'never-published', sourceUrls: ['https://example.com/integration-web-gym', 'https://maps.example.com/place/123'] });
+
+    const fromWeb = await (await fetch(`${API}/matfinder/from-web`, asAdmin())).json();
+    const item = fromWeb.items.find((g: { slug: string }) => g.slug === r.data.slug);
+    expect(item).toMatchObject({ name, sourceUrls: r.data.sourceUrls, city: { slug: 'las-vegas' } });
+    expect(item.discoveredAt).toEqual(expect.any(String));
+
+    const summary = await (await fetch(`${API}/matfinder/summary`, asAdmin())).json();
+    expect(summary.gyms.fromWeb).toBeGreaterThanOrEqual(1);
+    const gyms = await (await fetch(`${API}/matfinder/gyms?search=${encodeURIComponent(name)}`, asAdmin())).json();
+    expect(gyms.items[0]).toMatchObject({ slug: r.data.slug, origin: 'web-agent' });
+
+    // Never published, so not in the public directory; and the private fields never appear in public responses.
+    const dir = await (await get('/api/schools/directory?city=las-vegas')).json();
+    expect(dir.data.schools.some((s: { slug: string }) => s.slug === r.data.slug)).toBe(false);
+    const page = await (await get('/api/schools/slug/sample-summerlin-bjj-demo', await signUp())).json();
+    for (const field of ['origin', 'sourceUrls', 'discoveredAt']) expect(page.data).not.toHaveProperty(field);
+  });
+
+  it('offers the find_new_gyms prompt', async (ctx) => {
+    if (!token) return ctx.skip();
+    const list = await mcp(token, 'prompts/list');
+    expect(list.body.result.prompts.map((p: { name: string }) => p.name)).toContain('find_new_gyms');
+    const got = await mcp(token, 'prompts/get', { name: 'find_new_gyms', arguments: { city: 'las-vegas', area: 'Summerlin' } });
+    expect(got.body.result.messages[0].content.text).toMatch(/Summerlin in las-vegas/);
   });
 });
 

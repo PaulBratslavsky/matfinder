@@ -325,6 +325,14 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       }
     },
 
+    /**
+     * Geocode an address with Mapbox, biased to a point (e.g. the city center). Throws GEOCODE_FAILED. Used by the
+     * MatFinder plugin's duplicate check, which can't import the app's lib directly.
+     */
+    async geocodeAddress(address: string, proximity?: { longitude: number; latitude: number } | null) {
+      return geocodeAddress(address, proximity);
+    },
+
     /** Replace the whole weekly schedule on a school DRAFT (the `set_school_schedule` tool). */
     async setScheduleDraft(slug: string, sessions: ScheduleInput[]) {
       if (!Array.isArray(sessions)) throw invalid('must be a list of sessions', ['sessions']);

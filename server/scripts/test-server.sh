@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Throwaway Strapi for the integration and e2e suites: a fresh SQLite DB (.tmp/test.db) with the sample seed, on
-# port 1342, run with `strapi start` (production mode: MCP lists exactly the 8 MatFinder tools).
+# port 1342, run with `strapi start` (production mode: MCP lists exactly the 10 MatFinder tools).
 # It builds into dist/, which `npm run develop` also uses, so stop the dev server first.
 #   scripts/test-server.sh start | stop | status
 set -uo pipefail

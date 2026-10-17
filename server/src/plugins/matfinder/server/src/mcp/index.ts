@@ -8,9 +8,12 @@ import { setSchoolSchedule } from './tools/set-school-schedule';
 import { upsertAffiliation } from './tools/upsert-affiliation';
 import { upsertInstructor } from './tools/upsert-instructor';
 import { upsertSchool } from './tools/upsert-school';
+import { addGymFromWeb } from './tools/add-gym-from-web';
+import { findPossibleDuplicates } from './tools/find-possible-duplicates';
+import { findNewGymsArgs, findNewGymsText } from './prompts/find-new-gyms';
 import type { ToolDef } from './types';
 
-/** The 8 MatFinder tools. All writes are drafts: no tool publishes, unpublishes, deletes or uploads media. */
+/** The 10 MatFinder tools. All writes are drafts: no tool publishes, unpublishes, deletes or uploads media. */
 export const TOOLS: ToolDef[] = [
   listReferenceData,
   findSchools,
@@ -20,6 +23,8 @@ export const TOOLS: ToolDef[] = [
   upsertInstructor,
   upsertAffiliation,
   listPendingDrafts,
+  findPossibleDuplicates,
+  addGymFromWeb,
 ];
 
 /** Admin action uids allow only lowercase letters, dots and hyphens: upsert_school → mcp.upsert-school. */
@@ -64,4 +69,17 @@ export async function registerMcp(strapi: Core.Strapi) {
       },
     });
   }
+
+  // The search-and-add loop as a prompt. Anyone allowed to add gyms from the web can use it.
+  mcp.registerPrompt({
+    name: 'find_new_gyms',
+    title: 'Find new gyms on the web',
+    description:
+      'Search the web for BJJ gyms in a city that MatFinder does not list yet, skip duplicates, and add the rest as drafts with their source pages.',
+    argsSchema: findNewGymsArgs,
+    auth: { policies: [{ action: actionId('add_gym_from_web') }] },
+    createHandler: () => async (args: { city: string; area?: string }) => ({
+      messages: [{ role: 'user', content: { type: 'text', text: findNewGymsText(args) } }],
+    }),
+  });
 }
