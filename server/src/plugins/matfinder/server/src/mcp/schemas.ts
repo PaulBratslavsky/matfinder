@@ -1,8 +1,9 @@
-// Tool schemas use Strapi's own zod instance (@strapi/utils ships zod 4.4 in Strapi 5.56). A bare 'zod' import would
+// Tool schemas use Strapi's own zod instance (@strapi/utils ships zod 4.4 in Strapi 5.58). A bare 'zod' import would
 // resolve to a different copy: the top-level zod pinned for the Better Auth dashboard.
 import { z } from '@strapi/utils';
-import instructor from '../api/instructor/content-types/instructor/schema.json';
-import session from '../components/schedule/session.json';
+// The content model stays in the app (server/src); its enums are bundled in from there, so they can't drift.
+import instructor from '../../../../../api/instructor/content-types/instructor/schema.json';
+import session from '../../../../../components/schedule/session.json';
 
 const oneOf = (values: string[]) => z.enum(values as [string, ...string[]]);
 

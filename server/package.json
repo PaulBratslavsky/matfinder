@@ -17,7 +17,13 @@
     "test:unit": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:integration:isolated": "scripts/test-server.sh start && ALLOW_ADMIN_BOOTSTRAP=1 API_URL=http://localhost:1342 vitest run --config vitest.integration.config.mts; code=$?; scripts/test-server.sh stop; exit $code",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:plugin": "cd src/plugins/matfinder && strapi-plugin build",
+    "watch:plugin": "cd src/plugins/matfinder && strapi-plugin watch",
+    "predevelop": "npm run build:plugin",
+    "prebuild": "npm run build:plugin",
+    "postinstall": "npm run build:plugin",
+    "predev": "npm run build:plugin"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.7",

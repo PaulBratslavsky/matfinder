@@ -22,10 +22,10 @@ export const TOOLS: ToolDef[] = [
   listPendingDrafts,
 ];
 
-/** Admin action uids allow only lowercase letters, dots and hyphens: upsert_school → matfinder-mcp.upsert-school. */
-export const actionUid = (tool: string) => `matfinder-mcp.${tool.replace(/_/g, '-')}`;
-/** The action an Admin token must hold to call the tool (Settings → Admin Tokens → MatFinder MCP tools). */
-export const actionId = (tool: string) => `api::${actionUid(tool)}`;
+/** Admin action uids allow only lowercase letters, dots and hyphens: upsert_school → mcp.upsert-school. */
+export const actionUid = (tool: string) => `mcp.${tool.replace(/_/g, '-')}`;
+/** The action an Admin token must hold to call the tool (Settings → Admin Tokens → Plugins → MatFinder). */
+export const actionId = (tool: string) => `plugin::matfinder.${actionUid(tool)}`;
 
 /**
  * Registers one admin action per tool (so the curator token grants exactly these tools, never the generic
@@ -35,8 +35,9 @@ export const actionId = (tool: string) => `api::${actionUid(tool)}`;
 export async function registerMcp(strapi: Core.Strapi) {
   await strapi.service('admin::permission').actionProvider.registerMany(
     TOOLS.map((t) => ({
-      section: 'settings',
-      category: 'MatFinder MCP tools',
+      section: 'plugins',
+      pluginName: 'matfinder',
+      subCategory: 'MCP tools',
       uid: actionUid(t.name),
       displayName: t.write ? `${t.title} (write)` : t.title,
     })),

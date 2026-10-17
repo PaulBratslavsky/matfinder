@@ -1,7 +1,6 @@
 import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
 import { backfillUserRoles, seedPermissions } from './lib/permissions';
-import { registerMcp } from './mcp';
 import { seedSampleData } from './seed/sample';
 
 /**
@@ -21,7 +20,6 @@ const UNIQUE_INDEXES = [
 export default {
   async register({ strapi }: { strapi: Core.Strapi }) {
     registerDocumentMiddlewares(strapi);
-    await registerMcp(strapi);
   },
 
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {

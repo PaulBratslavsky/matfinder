@@ -99,7 +99,7 @@ describe('MCP (curator tools)', () => {
       body: JSON.stringify({
         name: `it-curator-${randomBytes(3).toString('hex')}`,
         lifespan: null,
-        adminPermissions: TOOLS.map((t) => ({ action: `api::matfinder-mcp.${t.replace(/_/g, '-')}` })),
+        adminPermissions: TOOLS.map((t) => ({ action: `plugin::matfinder.mcp.${t.replace(/_/g, '-')}` })),
       }),
     });
     expect(res.status).toBe(201);
@@ -142,5 +142,39 @@ describe('MCP (curator tools)', () => {
     });
     expect(r.isError).toBe(true);
     expect(r.error).toMatchObject({ error: 'VALIDATION_ERROR', path: ['sessions', 0, 'end'] });
+  });
+});
+
+describe('MatFinder plugin admin API', () => {
+  const asAdmin = (jwt: string) => ({ headers: { Authorization: `Bearer ${jwt}` } });
+
+  it('lists every gym with its publish status, and totals that match', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const list = await fetch(`${API}/matfinder/gyms?limit=50`, asAdmin(jwt));
+    expect(list.status).toBe(200);
+    const gyms = await list.json();
+    expect(gyms.total).toBeGreaterThanOrEqual(8);
+    expect(gyms.items[0]).toMatchObject({ documentId: expect.any(String), slug: expect.any(String), name: expect.any(String) });
+    expect(['published', 'unpublished-changes', 'never-published']).toContain(gyms.items[0].status);
+
+    const summary = await (await fetch(`${API}/matfinder/summary`, asAdmin(jwt))).json();
+    expect(summary.gyms.total).toBe(gyms.total);
+    expect(summary.gyms.published + summary.gyms.unpublishedChanges + summary.gyms.neverPublished).toBe(gyms.total);
+    expect(summary.gyms.published).toBeGreaterThanOrEqual(8);
+  });
+
+  it('filters by status and search', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const published = await (await fetch(`${API}/matfinder/gyms?status=published&search=summerlin`, asAdmin(jwt))).json();
+    expect(published.items.map((g: { slug: string }) => g.slug)).toContain('sample-summerlin-bjj-demo');
+    expect(published.items.every((g: { status: string }) => g.status === 'published')).toBe(true);
+    expect((await fetch(`${API}/matfinder/gyms?status=nope`, asAdmin(jwt))).status).toBe(400);
+  });
+
+  it('refuses requests without an admin session', async () => {
+    expect((await fetch(`${API}/matfinder/gyms`)).status).toBe(401);
+    expect((await fetch(`${API}/matfinder/summary`)).status).toBe(401);
   });
 });

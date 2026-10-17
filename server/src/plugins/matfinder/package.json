@@ -1,0 +1,48 @@
+{
+  "name": "matfinder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MatFinder curation: MCP tools for adding gyms from the web, an admin area for gyms and claims, and homepage widgets.",
+  "keywords": ["strapi", "strapi-plugin", "mcp"],
+  "type": "commonjs",
+  "exports": {
+    "./package.json": "./package.json",
+    "./strapi-admin": {
+      "types": "./dist/admin/src/index.d.ts",
+      "source": "./admin/src/index.ts",
+      "import": "./dist/admin/index.mjs",
+      "require": "./dist/admin/index.js",
+      "default": "./dist/admin/index.js"
+    },
+    "./strapi-server": {
+      "types": "./dist/server/src/index.d.ts",
+      "source": "./server/src/index.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "strapi-plugin build",
+    "watch": "strapi-plugin watch"
+  },
+  "strapi": {
+    "kind": "plugin",
+    "name": "matfinder",
+    "displayName": "MatFinder",
+    "description": "Gyms, claims and the MCP curation tools."
+  },
+  "peerDependencies": {
+    "@strapi/design-system": "^2.0.0",
+    "@strapi/icons": "^2.0.0",
+    "@strapi/strapi": "^5.58.0",
+    "@strapi/utils": "^5.58.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-intl": "^6.0.0",
+    "react-query": "^3.39.3",
+    "react-router-dom": "^6.30.0",
+    "styled-components": "^6.0.0"
+  }
+}
