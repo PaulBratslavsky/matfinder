@@ -7,8 +7,8 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **The work:** GitHub issues. Epic **#2**; milestones **#3 (M0) → #12 (M9)**. `docs/plan/issues/plan.json` maps each milestone to its issue, and `docs/plan/issues/*.md` are the drafts behind them.
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
-## Status (2026-10-13)
-Every milestone, M0–M9 (#3–#12), is built and merged to `main` through PRs #17–#30. The last three are the Explore rebuild on metravel-explore (#27), the "Mat room" UI on design tokens (#28), the architecture doc (#29) and fixes from the pre-merge review (#30). Issue #12 (M9) and the epic #2 stay open for what's left on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings (M9's PR #26 lists the steps). The native apps haven't been run on a device or simulator yet (see "iPhone Simulator" in `docs/architecture.md`). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
+## Status (2026-10-15)
+Every POC milestone, M0–M9 (#3–#12), is merged to `main` (PRs #17–#30). On top, as stacked PRs waiting for review: the plan for the MatFinder plugin (#31, `docs/plan/07-matfinder-plugin.md`), Strapi 5.58.0 (#32), and the plugin's three milestones, M10 plugin + MCP move + admin page (#33), M11 gyms from the web (#34) and M12 claims (#35). Issue #12 (M9) and the epic #2 stay open for what's left on the user: the Strapi Cloud and Vercel deploys, the production smoke test, and the real listings. The native apps haven't been run on a device or simulator yet (see "iPhone Simulator" in `docs/architecture.md`). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
 1. Find the next issue: one that's open and whose "Blocked by" issues are all closed. If the `spec-to-github-issues` skill is installed:

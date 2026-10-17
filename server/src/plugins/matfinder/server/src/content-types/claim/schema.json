@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "matfinder_claims",
+  "info": {
+    "singularName": "claim",
+    "pluralName": "claims",
+    "displayName": "Claim",
+    "description": "A gym owner's request to claim a gym, reviewed by hand on the MatFinder admin page."
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {
+    "content-manager": { "visible": false },
+    "content-type-builder": { "visible": false }
+  },
+  "attributes": {
+    "schoolDocumentId": { "type": "string", "required": true },
+    "schoolSlug": { "type": "string", "required": true },
+    "schoolName": { "type": "string", "required": true },
+    "userId": { "type": "string", "required": true, "private": true },
+    "name": { "type": "string", "required": true },
+    "email": { "type": "email", "required": true },
+    "phone": { "type": "string", "required": true },
+    "role": { "type": "enumeration", "enum": ["owner", "manager", "head_instructor", "staff"], "required": true },
+    "message": { "type": "text" },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "contacted", "accepted", "rejected", "withdrawn"],
+      "default": "pending",
+      "required": true
+    },
+    "adminNote": { "type": "text", "private": true },
+    "handledBy": { "type": "string" },
+    "contactedAt": { "type": "datetime" },
+    "decidedAt": { "type": "datetime" }
+  }
+}

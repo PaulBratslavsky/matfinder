@@ -14,9 +14,20 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       page: query.page ?? 1,
       limit: query.limit ?? 25,
     });
-    // Where each gym came from (added by hand, or by the web agent).
-    const origins = await strapi.plugin('matfinder').service('discovery').origins(page.items.map((g: any) => g.documentId));
-    return { ...page, items: page.items.map((g: any) => ({ ...g, origin: origins[g.documentId] ?? 'manual' })) };
+    const ids = page.items.map((g: any) => g.documentId);
+    // Where each gym came from (added by hand, or by the web agent), and who claimed it.
+    const [origins, claims] = await Promise.all([
+      strapi.plugin('matfinder').service('discovery').origins(ids),
+      strapi.plugin('matfinder').service('claims').byGym(ids),
+    ]);
+    return {
+      ...page,
+      items: page.items.map((g: any) => ({
+        ...g,
+        origin: origins[g.documentId] ?? 'manual',
+        claim: claims[g.documentId] ?? { owner: null, ownerClaim: null, open: 0 },
+      })),
+    };
   },
 
   /** Directory totals for the homepage widget. Each count is one status-filtered query; the directory is small. */
@@ -29,6 +40,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       count('never-published'),
       strapi.plugin('matfinder').service('discovery').listFromWeb().then((r: { total: number }) => r.total),
     ]);
-    return { gyms: { total, published, unpublishedChanges, neverPublished, fromWeb } };
+    const claims = await strapi.plugin('matfinder').service('claims').summary();
+    return { gyms: { total, published, unpublishedChanges, neverPublished, fromWeb, claimed: claims.claimed }, claims };
   },
 });

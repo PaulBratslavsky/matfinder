@@ -270,3 +270,92 @@ describe('MatFinder plugin admin API', () => {
     expect((await fetch(`${API}/matfinder/summary`)).status).toBe(401);
   });
 });
+
+describe('gym claims', () => {
+  const SLUG = 'sample-summerlin-bjj-demo';
+  const json = (method: string, body: unknown, cookie?: string, jwt?: string) => ({
+    method,
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}), ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const claim = (cookie: string | undefined, body: Record<string, unknown>) => fetch(`${API}/api/matfinder/claims`, json('POST', body, cookie));
+  const act = (jwt: string, id: string, action: string, note?: string) =>
+    fetch(`${API}/matfinder/claims/${id}/${action}`, json('POST', note ? { note } : {}, undefined, jwt));
+  const claimed = async () => {
+    const dir = await (await get('/api/schools/directory?city=las-vegas')).json();
+    return dir.data.schools.find((s: { slug: string }) => s.slug === SLUG).claimed;
+  };
+
+  /** An admin with only plugin::matfinder.read (no claims.review), through the admin registration flow. */
+  async function readOnlyAdmin(superJwt: string): Promise<string> {
+    const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
+    const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
+    await fetch(`${API}/admin/roles/${role.id}/permissions`, {
+      method: 'PUT',
+      headers: auth,
+      body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
+    });
+    const user = (
+      await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
+    ).data;
+    const reg = await fetch(`${API}/admin/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
+    });
+    return (await reg.json()).data.token;
+  }
+
+  it('a signed-in owner claims a gym; bad and repeated claims are refused', async () => {
+    expect((await claim(undefined, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199' })).status).toBeGreaterThanOrEqual(401);
+    const owner = await signUp();
+    expect((await claim(owner, { schoolSlug: 'no-such-gym', role: 'owner', phone: '702-555-0199' })).status).toBe(404);
+    expect((await claim(owner, { schoolSlug: SLUG, role: 'owner', phone: 'call me' })).status).toBe(422);
+
+    const res = await claim(owner, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199', message: 'I run the morning classes.' });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ status: 'pending' });
+    const again = await claim(owner, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199' });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error.name).toBe('CLAIM_OPEN');
+    const mine = await (await get(`/api/matfinder/claims/mine?school=${SLUG}`, owner)).json();
+    expect(mine.status).toBe('pending');
+    expect(await claimed()).toBe(false);
+  });
+
+  it('an admin contacts the owner and accepts; the gym shows as claimed, and no one else can claim it', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const board = await (await fetch(`${API}/matfinder/claims?status=pending`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const c = board.items.find((x: { schoolSlug: string }) => x.schoolSlug === SLUG);
+    expect(c).toMatchObject({ role: 'owner', phone: '702-555-0199', message: 'I run the morning classes.', status: 'pending' });
+    expect(c).not.toHaveProperty('userId');
+
+    // An admin who can see the board but not review gets 403.
+    expect((await act(await readOnlyAdmin(jwt), c.documentId, 'accept')).status).toBe(403);
+
+    expect((await act(jwt, c.documentId, 'contacted', 'Called, confirmed by the front desk.')).status).toBe(200);
+    expect((await act(jwt, c.documentId, 'reject')).status).toBe(422); // a rejection needs a note
+    const accepted = await act(jwt, c.documentId, 'accept');
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toEqual({ status: 'accepted' });
+    expect((await act(jwt, c.documentId, 'accept')).status).toBe(409);
+
+    expect(await claimed()).toBe(true);
+    const page = await (await get(`/api/schools/slug/${SLUG}`, await signUp())).json();
+    expect(page.data.claimed).toBe(true);
+    const other = await claim(await signUp(), { schoolSlug: SLUG, role: 'manager', phone: '702-555-0198' });
+    expect(other.status).toBe(409);
+    expect((await other.json()).error.name).toBe('ALREADY_CLAIMED');
+
+    const summary = await (await fetch(`${API}/matfinder/summary`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(summary.gyms.claimed).toBeGreaterThanOrEqual(1);
+    const gyms = await (await fetch(`${API}/matfinder/gyms?search=summerlin`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(gyms.items.find((g: { slug: string }) => g.slug === SLUG).claim.owner).toBe('Integration Test');
+
+    // Removing the owner frees the gym again (a reason is required).
+    expect((await act(jwt, c.documentId, 'remove-owner')).status).toBe(422);
+    expect((await act(jwt, c.documentId, 'remove-owner', 'Owner sold the gym.')).status).toBe(200);
+    expect(await claimed()).toBe(false);
+  });
+});

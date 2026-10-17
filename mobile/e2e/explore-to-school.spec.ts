@@ -18,7 +18,7 @@ function vegasMinutes(): number {
 const listNames = async (page: Page) =>
   (await page.getByRole('button', { name: /^Sample .*\(Demo\)$/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).sort();
 
-test('explore → filters → preview → View gym → sign up → full gym page → sign out re-gates it', async ({ page, request }) => {
+test('explore → filters → preview → View gym → sign up → full gym page → claim it → accepted → sign out re-gates it', async ({ page, request }) => {
   const directory: { schools: DirectorySchool[] } = (await (await request.get(`${API_URL}/api/schools/directory?city=las-vegas`)).json()).data;
 
   // The app opens on the map with the sheet (the sheet alone when no Mapbox token is configured).
@@ -78,6 +78,32 @@ test('explore → filters → preview → View gym → sign up → full gym page
   // A reload keeps the session.
   await page.reload();
   await expect(page.getByText('Coaches', { exact: true })).toBeVisible();
+
+  // Claim the gym: the form, then "being reviewed" on the gym page.
+  await page.getByText('Claim it', { exact: true }).click();
+  await expect(page).toHaveURL(`/schools/${target.slug}/claim`);
+  await page.getByRole('radio', { name: 'Manager' }).click();
+  await page.locator('#claim-phone').fill('702-555-0177');
+  await page.getByRole('button', { name: 'Send claim' }).click();
+  await expect(page.getByText("Thanks, we'll be in touch")).toBeVisible();
+  await page.goto(`/schools/${target.slug}`);
+  await expect(page.getByText(/Your claim is being reviewed/)).toBeVisible();
+
+  // An admin accepts it (the first admin of this throwaway database, through the admin API): the gym shows as claimed.
+  const admin = await (
+    await request.post(`${API_URL}/admin/register-admin`, {
+      data: { email: `e2e-admin-${randomBytes(4).toString('hex')}@example.test`, password: `Aa1${randomBytes(10).toString('hex')}`, firstname: 'E2E', lastname: 'Admin' },
+    })
+  ).json();
+  const auth = { Authorization: `Bearer ${admin.data.token}` };
+  const board = await (await request.get(`${API_URL}/matfinder/claims?status=pending`, { headers: auth })).json();
+  const claim = board.items.find((c: { schoolSlug: string }) => c.schoolSlug === target.slug);
+  expect(claim).toMatchObject({ role: 'manager', phone: '702-555-0177' });
+  expect((await request.post(`${API_URL}/matfinder/claims/${claim.documentId}/accept`, { headers: auth, data: {} })).status()).toBe(200);
+  await page.reload();
+  await expect(page.getByText('Claimed by the owner')).toBeVisible();
+  const after = (await (await request.get(`${API_URL}/api/schools/directory?city=las-vegas`)).json()).data;
+  expect(after.schools.find((x: { slug: string }) => x.slug === target.slug).claimed).toBe(true);
 
   // Sign out → the school page sends you to sign in again.
   await page.goto('/account');

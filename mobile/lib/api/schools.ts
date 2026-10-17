@@ -23,6 +23,8 @@ export type DirectorySchool = {
   dropInFee: number | null;
   currency: string;
   todaySessions: Session[];
+  /** An owner's claim was accepted. */
+  claimed: boolean;
 };
 
 export type Directory = {
@@ -69,6 +71,8 @@ export type SchoolPage = {
   documentId: string;
   slug: string;
   name: string;
+  /** An owner's claim was accepted. */
+  claimed: boolean;
   shortDescription: string | null;
   description: BlockNode[] | null;
   city: { slug: string; name: string; timezone: string } | null;

@@ -58,13 +58,14 @@ export const DIRECTORY_FIELDS = [
   'dropInFee',
   'currency',
   'todaySessions',
+  'claimed',
 ] as const;
 
 /**
  * One public directory item, built from an explicit list: the full schedule is read to compute today's sessions,
  * styles and programs, but only today's sessions go out.
  */
-export function toDirectoryItem(s: any, now: CityNow) {
+export function toDirectoryItem(s: any, now: CityNow, claimed = false) {
   return {
     documentId: s.documentId,
     slug: s.slug,
@@ -81,5 +82,7 @@ export function toDirectoryItem(s: any, now: CityNow) {
     dropInFee: num(s.pricing?.dropInFee),
     currency: s.pricing?.currency ?? 'USD',
     todaySessions: toTodaySessions(s.schedule, now),
+    // An owner's claim was accepted (the MatFinder plugin's claims); who claimed it is never public.
+    claimed,
   };
 }

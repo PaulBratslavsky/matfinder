@@ -72,6 +72,10 @@ export type PendingType = keyof typeof PENDING_TYPES;
 const invalid = (message: string, path: (string | number)[]) => new ToolError('VALIDATION_ERROR', message, { path });
 
 export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.Strapi }) => {
+  /** Gyms with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
+  const claimedSchoolIds = async (): Promise<Set<string>> =>
+    ((await (strapi.plugin('matfinder')?.service('claims') as any)?.claimedSchoolIds()) as Set<string> | undefined) ?? new Set<string>();
+
   // The generated types don't know these custom query shapes; the payloads below are built field by field.
   const docs = (uid: string) => strapi.documents(uid as any) as any;
 
@@ -210,6 +214,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       });
       if (!city) return null;
       const now = cityNow(city.timezone);
+      const claimed = await claimedSchoolIds();
       const schools = await findAllPublished({
         filters: { city: { slug: citySlug } },
         fields: ['slug', 'name', 'location', 'neighborhood', 'postalCode'],
@@ -234,7 +239,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         generatedAt: new Date().toISOString(),
         // Each item comes from an explicit field list (lib/directory.ts). A school without coordinates can't be
         // placed on the map, so it's left out.
-        schools: schools.filter((s) => hasCoords(s.location)).map((s) => toDirectoryItem(s, now)),
+        schools: schools.filter((s) => hasCoords(s.location)).map((s) => toDirectoryItem(s, now, claimed.has(s.documentId))),
       };
     },
 
@@ -256,6 +261,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         },
       });
       if (!s) return null;
+      const claimed = (await claimedSchoolIds()).has(s.documentId);
       const now = s.city?.timezone ? cityNow(s.city.timezone) : null;
       const today = now ? toTodaySessions(s.schedule, now) : [];
       const dayIndex = (d: string) => WEEKDAYS.indexOf(d as Weekday);
@@ -264,6 +270,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         documentId: s.documentId,
         slug: s.slug,
         name: s.name,
+        claimed,
         shortDescription: s.shortDescription ?? null,
         description: s.description ?? null,
         city: s.city ? { slug: s.city.slug, name: s.city.name, timezone: s.city.timezone } : null,

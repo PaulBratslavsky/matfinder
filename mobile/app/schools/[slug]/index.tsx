@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionButton, SectionTitle } from '@/components/kit';
 import { AmenityChips } from '@/components/school/AmenityChips';
+import { ClaimLine } from '@/components/school/ClaimLine';
 import { CoachCards } from '@/components/school/CoachCards';
 import { ContactList } from '@/components/school/ContactList';
 import { RestOfWeek, TodaySchedule } from '@/components/school/DaySchedule';
@@ -111,6 +112,7 @@ export default function SchoolScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}>
         <SchoolTopBar name={s.name} slug={s.slug} onBack={back} />
         <SchoolHeader school={s} today={now?.localDate ?? null} distanceMiles={distance} />
+        <ClaimLine slug={s.slug} claimed={s.claimed} />
         {!!s.shortDescription && <Text style={styles.short}>{s.shortDescription}</Text>}
         <NextClassCard school={s} next={week?.next ?? null} now={now} />
 

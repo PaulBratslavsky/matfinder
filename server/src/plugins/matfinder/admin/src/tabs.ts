@@ -1,6 +1,7 @@
 /** The MatFinder page's tabs. The open one lives in ?tab=, so widgets and links can open a tab directly. */
 export const TABS = [
   { id: 'gyms', label: 'Gyms' },
+  { id: 'claims', label: 'Claims' },
   { id: 'from-web', label: 'From the web' },
 ] as const;
 

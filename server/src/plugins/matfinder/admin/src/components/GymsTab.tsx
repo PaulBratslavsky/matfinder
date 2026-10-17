@@ -31,6 +31,7 @@ type Gym = {
   updatedAt: string;
   lastVerifiedAt: string | null;
   origin: 'manual' | 'web-agent';
+  claim: { owner: string | null; open: number };
 };
 type GymPage = { items: Gym[]; page: number; limit: number; total: number; hasMore: boolean };
 
@@ -114,7 +115,7 @@ export function GymsTab() {
         </Box>
       </Flex>
 
-      <Table colCount={6} rowCount={(data?.items.length ?? 0) + 1}>
+      <Table colCount={7} rowCount={(data?.items.length ?? 0) + 1}>
         <Thead>
           <Tr>
             <Th>
@@ -128,6 +129,9 @@ export function GymsTab() {
             </Th>
             <Th>
               <Typography variant="sigma">Status</Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">Claim</Typography>
             </Th>
             <Th>
               <Typography variant="sigma">Schedule verified</Typography>
@@ -156,6 +160,15 @@ export function GymsTab() {
                   <Badge variant={STATUS_LABELS[g.status].variant}>{STATUS_LABELS[g.status].label}</Badge>
                   {g.origin === 'web-agent' && <Badge variant="alternative">From the web</Badge>}
                 </Flex>
+              </Td>
+              <Td>
+                {g.claim.owner ? (
+                  <Badge variant="success">Claimed by {g.claim.owner}</Badge>
+                ) : g.claim.open ? (
+                  <Badge variant="warning">{g.claim.open === 1 ? 'Claim waiting' : `${g.claim.open} claims waiting`}</Badge>
+                ) : (
+                  <Typography textColor="neutral500">Not claimed</Typography>
+                )}
               </Td>
               <Td>
                 <Typography textColor={g.lastVerifiedAt ? 'neutral800' : 'neutral500'}>{formatDay(g.lastVerifiedAt) || 'Never'}</Typography>
