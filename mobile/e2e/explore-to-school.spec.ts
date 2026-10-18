@@ -66,9 +66,10 @@ test('explore → filters → preview → View gym → sign up → full gym page
 
   // Back on that gym's full page: today marked in the week grid, the gated sections present.
   await expect(page).toHaveURL(`/schools/${target.slug}`);
-  // The Explore screen stays mounted (hidden) under the school page, so only count visible matches.
+  // The Explore screen stays mounted (hidden) under the school page, so only count visible matches: late in the day its
+  // preview card shows a bare "Today" label too ("No more classes today").
   await expect(page.getByText(target.name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText('Today', { exact: true })).toBeVisible();
+  await expect(page.getByText('Today', { exact: true }).filter({ visible: true })).toBeVisible();
   for (const section of ['This week', 'Coaches', 'In the gym', 'Get there', 'Contact']) {
     await expect(page.getByText(section, { exact: true })).toBeVisible();
   }
