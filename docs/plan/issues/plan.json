@@ -246,6 +246,47 @@
       "number": 12,
       "id": 5637225321,
       "url": "https://github.com/PaulBratslavsky/matfinder/issues/12"
+    },
+    {
+      "key": "m14",
+      "title": "[MatFinder] M14 · Coordinates and the nearby API",
+      "body": "11-m14-nearby-api.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend"
+      ],
+      "parent": null,
+      "blockedBy": []
+    },
+    {
+      "key": "m15",
+      "title": "[MatFinder] M15 · Search suggestions (places and gyms)",
+      "body": "12-m15-search-suggestions.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend"
+      ],
+      "parent": null,
+      "blockedBy": [
+        "m14"
+      ]
+    },
+    {
+      "key": "m16",
+      "title": "[MatFinder] M16 · Explore by location and radius",
+      "body": "13-m16-explore-nearby.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:app"
+      ],
+      "parent": null,
+      "blockedBy": [
+        "m14",
+        "m15"
+      ]
     }
   ]
 }

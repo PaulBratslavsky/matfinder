@@ -12,5 +12,7 @@ Planned in six stages. Each file builds on the one before it: value first, tech 
 | 4 | [04-tech-decisions.md](04-tech-decisions.md) | Stack: Strapi 5 (upgrade) + Postgres + Strapi Cloud, Expo + React Native Web + Vercel, NativeWind + React Native Reusables, Better Auth, MCP |
 | 5 | [05-tech-requirements.md](05-tech-requirements.md) | Schemas, API gate, MCP tools, auth flows, permissions, routes, env vars, tests |
 | 6 | [06-build-spec.md](06-build-spec.md) | **Self-contained build spec**: milestones M0–M9 and acceptance criteria. Hand this to a coding agent |
+| 7 | [07-matfinder-plugin.md](07-matfinder-plugin.md) | The MatFinder plugin: gyms from the web, admin area, claims (M10–M13) |
+| 8 | [08-nearby-and-place-search.md](08-nearby-and-place-search.md) | Explore by location and radius, place search that switches areas, no city picker (M14–M16) |
 
 **To build:** open a session in this repo and ask it to follow `docs/plan/06-build-spec.md` milestone by milestone.
