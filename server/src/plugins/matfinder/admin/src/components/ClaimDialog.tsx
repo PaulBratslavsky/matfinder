@@ -1,4 +1,4 @@
-import { Button, Field, Modal, Textarea, Typography } from '@strapi/design-system';
+import { Box, Button, Field, Modal, Textarea, Typography } from '@strapi/design-system';
 import { useState } from 'react';
 import { ACTION_COPY, type Claim, type ClaimAction } from '../claims';
 
@@ -28,6 +28,14 @@ export function ClaimDialog({
           <Typography tag="p" variant="omega" textColor="neutral800">
             {claim.name} for {claim.schoolName}.
           </Typography>
+          {/* The board shows one line of the owner's note; here it's in full. */}
+          {!!claim.message && (
+            <Box marginTop={3} padding={3} background="neutral100" hasRadius>
+              <Typography tag="p" variant="omega" textColor="neutral700" style={{ whiteSpace: 'pre-wrap' }}>
+                {claim.message}
+              </Typography>
+            </Box>
+          )}
           <Typography tag="p" variant="pi" textColor="neutral600" style={{ marginTop: 8, marginBottom: 16 }}>
             {copy.hint}
           </Typography>

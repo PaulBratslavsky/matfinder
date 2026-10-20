@@ -1,3 +1,5 @@
+import { PLUGIN_ID } from './pluginId';
+
 /** The MatFinder page's tabs. The open one lives in ?tab=, so widgets and links can open a tab directly. */
 export const TABS = [
   { id: 'gyms', label: 'Gyms' },
@@ -9,5 +11,6 @@ export type TabId = (typeof TABS)[number]['id'];
 
 export const tabFromQuery = (value: string | null): TabId => (TABS.some((t) => t.id === value) ? (value as TabId) : 'gyms');
 
-/** "From the web 3", or the plain label when there's nothing waiting. */
-export const tabLabel = (label: string, count?: number) => (count ? `${label} ${count}` : label);
+/** The plugin page, on one tab, with optional filters: pagePath('gyms', { status: 'published' }). */
+export const pagePath = (tab: TabId, params: Record<string, string> = {}) =>
+  `/plugins/${PLUGIN_ID}?${new URLSearchParams({ tab, ...params }).toString()}`;

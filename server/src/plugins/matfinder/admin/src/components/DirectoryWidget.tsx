@@ -1,26 +1,15 @@
-import { Box, Flex, Grid, Typography } from '@strapi/design-system';
+import { CheckCircle, Earth, Files, Pencil, PinMap, SealCheck } from '@strapi/icons';
 import { Widget, useFetchClient } from '@strapi/strapi/admin';
 import { useEffect, useState } from 'react';
 import { startPolling } from '../poll';
+import { pagePath } from '../tabs';
+import { StatGrid } from './StatGrid';
 
-type Summary = { gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number; fromWeb: { thisWeek: number } } };
+type Summary = {
+  gyms: { total: number; published: number; unpublishedChanges: number; neverPublished: number; claimed: number; fromWeb: { thisWeek: number } };
+};
 
-function Tile({ value, label }: { value: number; label: string }) {
-  return (
-    <Box padding={3} hasRadius background="neutral100" width="100%">
-      <Flex direction="column" alignItems="flex-start" gap={1}>
-        <Typography variant="alpha" tag="p">
-          {value}
-        </Typography>
-        <Typography variant="pi" textColor="neutral600">
-          {label}
-        </Typography>
-      </Flex>
-    </Box>
-  );
-}
-
-/** Homepage widget: how many gyms are published, added by the agent this week, waiting with changes, or still drafts. */
+/** Homepage widget: all gyms, how many are published, modified or drafts, added from the web in the last week, and claimed. */
 export default function DirectoryWidget() {
   const { get } = useFetchClient();
   const [data, setData] = useState<Summary | null>(null);
@@ -46,22 +35,15 @@ export default function DirectoryWidget() {
   const g = data.gyms;
   if (g.total === 0) return <Widget.NoData>No gyms yet</Widget.NoData>;
   return (
-    <Grid.Root gap={3} gridCols={3}>
-      <Grid.Item col={1}>
-        <Tile value={g.published} label="Published" />
-      </Grid.Item>
-      <Grid.Item col={1}>
-        <Tile value={g.fromWeb.thisWeek} label="From the web this week" />
-      </Grid.Item>
-      <Grid.Item col={1}>
-        <Tile value={g.unpublishedChanges} label="Changes waiting" />
-      </Grid.Item>
-      <Grid.Item col={1}>
-        <Tile value={g.neverPublished} label="Drafts" />
-      </Grid.Item>
-      <Grid.Item col={1}>
-        <Tile value={g.total} label="All gyms" />
-      </Grid.Item>
-    </Grid.Root>
+    <StatGrid
+      stats={[
+        { label: 'All gyms', value: g.total, icon: <PinMap />, tone: 'primary', to: pagePath('gyms') },
+        { label: 'Published', value: g.published, icon: <CheckCircle />, tone: 'success', to: pagePath('gyms', { status: 'published' }) },
+        { label: 'Modified', value: g.unpublishedChanges, icon: <Pencil />, tone: 'alternative', to: pagePath('gyms', { status: 'unpublished-changes' }) },
+        { label: 'Drafts', value: g.neverPublished, icon: <Files />, tone: 'secondary', to: pagePath('gyms', { status: 'never-published' }) },
+        { label: 'New from the web', value: g.fromWeb.thisWeek, icon: <Earth />, tone: 'warning', to: pagePath('from-web'), hint: 'Added by the web agent in the last 7 days' },
+        { label: 'Claimed', value: g.claimed, icon: <SealCheck />, tone: 'neutral', to: pagePath('claims', { status: 'accepted' }) },
+      ]}
+    />
   );
 }
