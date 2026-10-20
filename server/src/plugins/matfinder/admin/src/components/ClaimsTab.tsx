@@ -1,29 +1,17 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Link,
-  SingleSelect,
-  SingleSelectOption,
-  Table,
-  Tbody,
-  Td,
-  Th,
-  Thead,
-  Tr,
-  Typography,
-} from '@strapi/design-system';
-import { useFetchClient, useNotification, useRBAC } from '@strapi/strapi/admin';
+import { Badge, Box, Flex, IconButton, SingleSelect, SingleSelectOption, Th, Tooltip, Typography, VisuallyHidden } from '@strapi/design-system';
+import { Check, Cross, Filter, Phone, Trash } from '@strapi/icons';
+import { Layouts, Table, useFetchClient, useNotification, useQueryParams, useRBAC } from '@strapi/strapi/admin';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { ACTION_COPY, ROLE_LABELS, STATUS, actionsFor, age, type Claim, type ClaimAction, type ClaimStatus } from '../claims';
 import { PERMISSIONS } from '../permissions';
 import { singleFlight } from '../singleFlight';
 import { editGymPath, formatDay } from '../status';
+import { textColumn } from './cells';
 import { ClaimDialog } from './ClaimDialog';
 
-const FILTERS: { value: 'open' | ClaimStatus | 'all'; label: string }[] = [
+type ClaimFilter = 'open' | ClaimStatus | 'all';
+const FILTERS: { value: ClaimFilter; label: string }[] = [
   { value: 'open', label: 'Waiting for review' },
   { value: 'pending', label: 'New' },
   { value: 'contacted', label: 'Contacted' },
@@ -32,22 +20,35 @@ const FILTERS: { value: 'open' | ClaimStatus | 'all'; label: string }[] = [
   { value: 'withdrawn', label: 'Owner removed' },
   { value: 'all', label: 'All claims' },
 ];
+const isFilter = (v: unknown): v is ClaimFilter => FILTERS.some((f) => f.value === v);
+const HEADERS = [
+  { name: 'gym', label: 'Gym' },
+  { name: 'claimant', label: 'Claimant' },
+  { name: 'note', label: 'Note' },
+  { name: 'status', label: 'Status' },
+];
+const ACTIONS_HEADER = { name: 'actions', label: 'Actions' };
+const ICONS: Record<ClaimAction, React.ReactNode> = { contacted: <Phone />, accept: <Check />, reject: <Cross />, 'remove-owner': <Trash /> };
 
 /**
  * Gym owners' claims. Contact the owner (phone, email), then accept or reject. Accepting marks the gym as claimed in
- * the app; only admins see who claimed it.
+ * the app; only admins see who claimed it. The status filter lives in ?status=, so links can open a filtered board.
  */
 export function ClaimsTab({ onChanged }: { onChanged?: () => void }) {
   const { get, post } = useFetchClient();
   const { toggleNotification } = useNotification();
   const { allowedActions } = useRBAC(PERMISSIONS.review);
   const canReview = allowedActions.canReview === true;
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>('open');
+  const [{ query }, setQuery] = useQueryParams<{ status?: string }>();
+  const filter: ClaimFilter = isFilter(query.status) ? query.status : 'open';
   const [items, setItems] = useState<Claim[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [dialog, setDialog] = useState<{ claim: Claim; action: ClaimAction } | null>(null);
   const [refresh, setRefresh] = useState(0);
   const latest = useRef(0);
 
+  // A new filter shows the loader; a refresh after an action keeps the rows until the new ones arrive.
+  useEffect(() => setItems(null), [filter]);
   useEffect(() => {
     const ticket = ++latest.current;
     const status = filter === 'open' || filter === 'all' ? undefined : filter;
@@ -56,8 +57,14 @@ export function ClaimsTab({ onChanged }: { onChanged?: () => void }) {
         if (ticket !== latest.current) return;
         const all = (res.data as { items: Claim[] }).items;
         setItems(filter === 'open' ? all.filter((c) => c.status === 'pending' || c.status === 'contacted') : all);
+        setFailed(false);
       })
-      .catch(() => ticket === latest.current && toggleNotification({ type: 'danger', message: "Couldn't load the claims. Try again." }));
+      .catch(() => {
+        if (ticket !== latest.current) return;
+        setItems((prev) => prev ?? []);
+        setFailed(true);
+        toggleNotification({ type: 'danger', message: "Couldn't load the claims. Try again." });
+      });
   }, [get, toggleNotification, filter, refresh]);
 
   const run = useMemo(
@@ -79,118 +86,123 @@ export function ClaimsTab({ onChanged }: { onChanged?: () => void }) {
   );
   const confirm = useCallback(async (note: string) => (dialog ? ((await run(dialog.claim, dialog.action, note)) ?? false) : false), [dialog, run]);
 
-  return (
-    <Flex direction="column" alignItems="stretch" gap={4}>
-      <Box style={{ maxWidth: 260 }}>
-        <SingleSelect aria-label="Show claims" value={filter} onChange={(v: string | number) => setFilter(v as typeof filter)}>
-          {FILTERS.map((f) => (
-            <SingleSelectOption key={f.value} value={f.value}>
-              {f.label}
-            </SingleSelectOption>
-          ))}
-        </SingleSelect>
-      </Box>
+  const headers = canReview ? [...HEADERS, ACTIONS_HEADER] : HEADERS;
+  const rows = (items ?? []).map((c) => ({ ...c, id: c.documentId }));
+  const empty = failed
+    ? "Couldn't load the claims."
+    : filter === 'open'
+      ? 'No claims waiting. Owners claim a gym from its page in the app.'
+      : 'No claims with this status.';
 
-      {items && items.length === 0 ? (
-        <Box padding={6} background="neutral0" hasRadius>
-          <Typography textColor="neutral600">
-            {filter === 'open' ? 'No claims waiting. Owners claim a gym from its page in the app.' : 'No claims with this status.'}
-          </Typography>
-        </Box>
-      ) : (
-        <Table colCount={6} rowCount={(items?.length ?? 0) + 1}>
-          <Thead>
-            <Tr>
-              <Th>
-                <Typography variant="sigma">Gym</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Who</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Contact</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Note</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Status</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Actions</Typography>
-              </Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {items?.map((c) => (
-              <Tr key={c.documentId}>
-                <Td>
-                  <Flex direction="column" alignItems="flex-start" gap={1}>
-                    <Link tag={RouterLink} to={editGymPath(c.schoolDocumentId)}>
-                      {c.schoolName}
-                    </Link>
-                    <Typography variant="pi" textColor="neutral600">
-                      {age(c.createdAt)}
-                    </Typography>
-                  </Flex>
-                </Td>
-                <Td>
-                  <Flex direction="column" alignItems="flex-start" gap={1}>
-                    <Typography fontWeight="semiBold">{c.name}</Typography>
-                    <Typography variant="pi" textColor="neutral600">
-                      {ROLE_LABELS[c.role]}
-                    </Typography>
-                  </Flex>
-                </Td>
-                <Td>
-                  <Flex direction="column" alignItems="flex-start" gap={1}>
-                    <Typography>{c.phone}</Typography>
-                    <Typography variant="pi" textColor="neutral600">
-                      {c.email}
-                    </Typography>
-                  </Flex>
-                </Td>
-                <Td style={{ maxWidth: 320, whiteSpace: 'normal' }}>
-                  <Typography variant="pi">{c.message ?? ''}</Typography>
-                  {!!c.adminNote && (
-                    <Typography variant="pi" textColor="neutral600" tag="p" style={{ marginTop: 4 }}>
-                      Admin: {c.adminNote}
-                    </Typography>
-                  )}
-                </Td>
-                <Td>
-                  <Flex direction="column" alignItems="flex-start" gap={1}>
-                    <Badge variant={STATUS[c.status].variant}>{STATUS[c.status].label}</Badge>
-                    {(c.decidedAt || c.contactedAt) && (
-                      <Typography variant="pi" textColor="neutral600">
-                        {formatDay(c.decidedAt ?? c.contactedAt)}
-                        {c.handledBy ? ` · ${c.handledBy}` : ''}
-                      </Typography>
-                    )}
-                  </Flex>
-                </Td>
-                <Td>
-                  <Flex gap={2} wrap="wrap">
-                    {canReview &&
-                      actionsFor(c.status).map((a) => (
-                        <Button
-                          key={a}
-                          size="S"
-                          variant={a === 'accept' ? 'success-light' : a === 'reject' || a === 'remove-owner' ? 'danger-light' : 'secondary'}
-                          onClick={() => setDialog({ claim: c, action: a })}
-                        >
-                          {ACTION_COPY[a].button}
-                        </Button>
-                      ))}
-                  </Flex>
-                </Td>
-              </Tr>
+  return (
+    <>
+      <Layouts.Action
+        startActions={
+          <SingleSelect size="S" aria-label="Show claims" startIcon={<Filter />} value={filter} onChange={(v: string | number) => setQuery({ status: v === 'open' ? undefined : String(v) })}>
+            {FILTERS.map((f) => (
+              <SingleSelectOption key={f.value} value={f.value}>
+                {f.label}
+              </SingleSelectOption>
             ))}
-          </Tbody>
-        </Table>
-      )}
+          </SingleSelect>
+        }
+      />
+      <Layouts.Content>
+        <Table.Root rows={rows} headers={headers} isLoading={items === null}>
+          <Table.Content>
+            <Table.Head>
+              {HEADERS.map((h) => (
+                <Table.HeaderCell key={h.name} {...h} />
+              ))}
+              {canReview && (
+                <Th>
+                  <VisuallyHidden>{ACTIONS_HEADER.label}</VisuallyHidden>
+                </Th>
+              )}
+            </Table.Head>
+            <Table.Loading />
+            <Table.Empty content={empty} />
+            <Table.Body>
+              {rows.map((c) => {
+                const handled = c.decidedAt ?? c.contactedAt;
+                return (
+                  <Table.Row key={c.id}>
+                    <Table.Cell style={textColumn(26)}>
+                      <Typography tag={RouterLink} to={editGymPath(c.schoolDocumentId)} textColor="primary600" textDecoration="none" ellipsis title={c.schoolName}>
+                        {c.schoolName}
+                      </Typography>
+                      <Typography variant="pi" textColor="neutral600">
+                        {age(c.createdAt)}
+                      </Typography>
+                    </Table.Cell>
+                    <Table.Cell style={textColumn(24)}>
+                      <Typography textColor="neutral800" fontWeight="semiBold" ellipsis title={c.name}>
+                        {c.name}
+                      </Typography>
+                      <Typography variant="pi" textColor="neutral600" ellipsis>
+                        {ROLE_LABELS[c.role]} · {c.phone}
+                      </Typography>
+                      <Typography variant="pi" textColor="neutral600" ellipsis title={c.email}>
+                        {c.email}
+                      </Typography>
+                    </Table.Cell>
+                    <Table.Cell style={textColumn(30)}>
+                      {c.message || c.adminNote ? (
+                        <Tooltip
+                          label={
+                            <>
+                              {c.message}
+                              {c.message && c.adminNote ? <br /> : null}
+                              {c.adminNote ? `Admin: ${c.adminNote}` : null}
+                            </>
+                          }
+                        >
+                          <Box>
+                            {!!c.message && (
+                              <Typography textColor="neutral800" ellipsis>
+                                {c.message}
+                              </Typography>
+                            )}
+                            {!!c.adminNote && (
+                              <Typography variant="pi" textColor="neutral600" ellipsis>
+                                Admin: {c.adminNote}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Tooltip>
+                      ) : (
+                        <Typography textColor="neutral500">—</Typography>
+                      )}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge variant={STATUS[c.status].variant}>{STATUS[c.status].label}</Badge>
+                      {handled && (
+                        <Typography tag="p" variant="pi" textColor="neutral600" ellipsis maxWidth="16rem" paddingTop={1}>
+                          {formatDay(handled)}
+                          {c.handledBy ? ` · ${c.handledBy}` : ''}
+                        </Typography>
+                      )}
+                    </Table.Cell>
+                    {canReview && (
+                      <Table.Cell>
+                        <Flex gap={1} justifyContent="flex-end">
+                          {actionsFor(c.status).map((a) => (
+                            <IconButton key={a} variant="ghost" label={ACTION_COPY[a].button} onClick={() => setDialog({ claim: c, action: a })}>
+                              {ICONS[a]}
+                            </IconButton>
+                          ))}
+                        </Flex>
+                      </Table.Cell>
+                    )}
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table.Content>
+        </Table.Root>
+      </Layouts.Content>
 
       {dialog && <ClaimDialog claim={dialog.claim} action={dialog.action} onClose={() => setDialog(null)} onConfirm={confirm} />}
-    </Flex>
+    </>
   );
 }

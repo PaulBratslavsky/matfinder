@@ -1,18 +1,22 @@
-import { Box, Tabs } from '@strapi/design-system';
-import { Layouts, Page } from '@strapi/strapi/admin';
-import { useCallback, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useFetchClient } from '@strapi/strapi/admin';
-import { useEffect } from 'react';
+import { Badge, Box, Button, Divider, Flex, Tabs } from '@strapi/design-system';
+import { Plus } from '@strapi/icons';
+import { Layouts, Page, RESPONSIVE_DEFAULT_SPACING, useFetchClient, useRBAC } from '@strapi/strapi/admin';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ClaimsTab } from '../components/ClaimsTab';
 import { FromWebTab } from '../components/FromWebTab';
 import { GymsTab } from '../components/GymsTab';
 import { PERMISSIONS } from '../permissions';
-import { TABS, tabFromQuery, tabLabel, type TabId } from '../tabs';
+import { createGymPath } from '../status';
+import { TABS, tabFromQuery, type TabId } from '../tabs';
+
+/** useRBAC → allowedActions.canCreate: the Content Manager's own check for its "Create new entry" button. */
+const CREATE_GYM = [{ action: 'plugin::content-manager.explorer.create', subject: 'api::school.school' }];
 
 /** The MatFinder admin area: every gym, owners' claims, and the gyms the web agent added for review. */
 export default function MatFinderPage() {
   const { get } = useFetchClient();
+  const { allowedActions } = useRBAC(CREATE_GYM);
   const [params, setParams] = useSearchParams();
   const tab = tabFromQuery(params.get('tab'));
   const [counts, setCounts] = useState<Partial<Record<TabId, number>>>({});
@@ -32,33 +36,47 @@ export default function MatFinderPage() {
     <Page.Protect permissions={PERMISSIONS.read}>
       <Page.Main>
         <Page.Title>MatFinder</Page.Title>
-        <Layouts.Header title="MatFinder" subtitle="Every gym in the directory, owners' claims, and the gyms the agent found on the web." />
-        <Layouts.Content>
-          <Tabs.Root value={tab} onValueChange={(v: string) => setParams({ tab: v }, { replace: true })}>
+        <Layouts.Header
+          title="MatFinder"
+          subtitle="Every gym in the directory, owners' claims, and the gyms the agent found on the web."
+          primaryAction={
+            allowedActions.canCreate ? (
+              <Button tag={Link} to={createGymPath} startIcon={<Plus />} minWidth="max-content">
+                Add a gym
+              </Button>
+            ) : null
+          }
+        />
+        {/* Each tab renders its own toolbar (Layouts.Action) and content, like a Content Manager list view.
+            Switching tabs drops the other tab's search, filters and page from the URL. */}
+        <Tabs.Root variant="simple" value={tab} onValueChange={(v: string) => setParams({ tab: v }, { replace: true })}>
+          <Box paddingLeft={RESPONSIVE_DEFAULT_SPACING} paddingRight={RESPONSIVE_DEFAULT_SPACING} paddingBottom={6}>
             <Tabs.List aria-label="MatFinder sections">
               {TABS.map((t) => (
                 <Tabs.Trigger key={t.id} value={t.id}>
-                  {tabLabel(t.label, counts[t.id])}
+                  <Flex tag="span" gap={2} alignItems="center">
+                    {t.label}
+                    {!!counts[t.id] && (
+                      <Badge size="S" active={tab === t.id}>
+                        {counts[t.id]}
+                      </Badge>
+                    )}
+                  </Flex>
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <Tabs.Content value="gyms">
-              <Box paddingTop={4}>
-                <GymsTab />
-              </Box>
-            </Tabs.Content>
-            <Tabs.Content value="claims">
-              <Box paddingTop={4}>
-                <ClaimsTab onChanged={loadCounts} />
-              </Box>
-            </Tabs.Content>
-            <Tabs.Content value="from-web">
-              <Box paddingTop={4}>
-                <FromWebTab onCount={onFromWebCount} />
-              </Box>
-            </Tabs.Content>
-          </Tabs.Root>
-        </Layouts.Content>
+            <Divider />
+          </Box>
+          <Tabs.Content value="gyms">
+            <GymsTab />
+          </Tabs.Content>
+          <Tabs.Content value="claims">
+            <ClaimsTab onChanged={loadCounts} />
+          </Tabs.Content>
+          <Tabs.Content value="from-web">
+            <FromWebTab onCount={onFromWebCount} />
+          </Tabs.Content>
+        </Tabs.Root>
       </Page.Main>
     </Page.Protect>
   );
