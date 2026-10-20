@@ -83,8 +83,10 @@ flowchart LR
 
 | Field | Type | Notes |
 |---|---|---|
-| `latitude` | decimal | Copied from `location.latitude` on every create, update and publish (a Document Service middleware in `src/document-middlewares/`). Never set by hand; not shown in the Content Manager edit view. |
-| `longitude` | decimal | Same, from `location.longitude`. |
+| `latitude` | float | Copied from `location.latitude` on every create, update and publish (a Document Service middleware in `src/document-middlewares/`). Never set by hand; hidden from the Content Manager (`config.attributes.*.hidden` in the schema). |
+| `longitude` | float | Same, from `location.longitude`. |
+
+`float` rather than `decimal` (changed in M14): Strapi 5.58 maps `decimal` to a fixed `decimal(10, 2)`, which would round every position to about 1 km. `float` is a `double` column with full precision.
 
 - A bootstrap step **backfills** existing schools once (where `latitude` is null and `location` has coordinates).
 - An **index** on `(latitude, longitude)` is created next to the existing `UNIQUE_INDEXES` in `src/index.ts`
@@ -206,7 +208,7 @@ Each is one branch and PR, in order, merged by you.
 - **Mapbox terms and API version (verify in M15).** `lib/geocode.ts` calls the v5 `mapbox.places` endpoint. Check
   whether v6 is now the one to use, and whether "temporary" geocoding results may be cached. Plan: no server-side
   cache unless the terms allow it; the 3-character minimum, the 300 ms debounce and city-name matches keep calls down.
-- **Decimal columns.** Check how Strapi 5.58 returns `decimal` on Postgres (string vs number) and convert in one place.
+- **Column type (settled in M14).** Strapi 5.58's `decimal` is a fixed `decimal(10, 2)`, too coarse for coordinates, so the columns are `float` (`double`).
 - **Sample data for the tests.** The seed has one city. M16's Playwright needs a second, far-away test city with one
   gym; add it to the test seed only (`SEED_SAMPLE_DATA`), never to production.
 - **AC1 changes.** "Signed out, the web app opens on a map centered on the device location (or the Las Vegas center if

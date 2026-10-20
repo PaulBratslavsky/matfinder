@@ -607,6 +607,7 @@ export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
       'api::instructor.instructor'
     >;
     lastVerifiedAt: Schema.Attribute.Date;
+    latitude: Schema.Attribute.Float;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -617,6 +618,7 @@ export interface ApiSchoolSchool extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.CustomField<'global::map-box'>;
     logo: Schema.Attribute.Media<'images'>;
+    longitude: Schema.Attribute.Float;
     name: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{

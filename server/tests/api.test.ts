@@ -6,6 +6,7 @@
 import { randomBytes } from 'node:crypto';
 import { beforeAll, describe, expect, inject, it } from 'vitest';
 import { DIRECTORY_FIELDS } from '../src/lib/directory';
+import { haversineMiles, type Coords } from '../src/lib/radius';
 
 const API = (process.env.API_URL ?? 'http://localhost:1342').replace(/\/$/, '');
 const WEB_ORIGIN = 'http://localhost:8083';
@@ -376,5 +377,117 @@ describe('gym claims', () => {
     expect((await act(jwt, c.documentId, 'remove-owner')).status).toBe(422);
     expect((await act(jwt, c.documentId, 'remove-owner', 'Owner sold the gym.')).status).toBe(200);
     expect(await claimed()).toBe(false);
+  });
+});
+
+describe('nearby gyms (plan 08, M14)', () => {
+  const VEGAS = { latitude: 36.1699, longitude: -115.1398 };
+  const nearby = async (q: string) => {
+    const res = await get(`/api/schools/nearby?${q}`);
+    return { status: res.status, headers: res.headers, data: res.status === 200 ? (await res.json()).data : null };
+  };
+  const slugsNear = async (lat: number, lng: number, radius = 1) =>
+    ((await nearby(`lat=${lat}&lng=${lng}&radius=${radius}`)).data.schools as { slug: string }[]).map((s) => s.slug);
+
+  it('returns every published gym within 25 mi of Las Vegas, nearest first, with its city and local time', async () => {
+    const { status, headers, data } = await nearby(`lat=${VEGAS.latitude}&lng=${VEGAS.longitude}`);
+    expect(status).toBe(200);
+    expect(headers.get('cache-control')).toBe('public, max-age=60');
+    expect(Object.keys(data)).toEqual(['center', 'radius', 'generatedAt', 'truncated', 'cities', 'schools', 'nearest']);
+    expect(data).toMatchObject({ center: VEGAS, radius: 25, truncated: false, nearest: null });
+
+    // The same gyms the city directory lists, keeping only those within 25 mi of the center.
+    const directory = (await (await get('/api/schools/directory?city=las-vegas')).json()).data;
+    const expected = directory.schools.filter((s: Coords) => haversineMiles(VEGAS, s) <= 25).map((s: { slug: string }) => s.slug);
+    expect(data.schools.length).toBeGreaterThanOrEqual(8);
+    expect(data.schools.map((s: { slug: string }) => s.slug).sort()).toEqual([...expected].sort());
+
+    const miles = data.schools.map((s: { distanceMiles: number }) => s.distanceMiles);
+    expect(miles).toEqual([...miles].sort((a, b) => a - b));
+    for (const s of data.schools) {
+      expect(Object.keys(s)).toEqual([...DIRECTORY_FIELDS, 'citySlug', 'distanceMiles']);
+      expect(s.citySlug).toBe('las-vegas');
+    }
+    expect(data.cities['las-vegas']).toEqual({
+      name: 'Las Vegas',
+      state: expect.anything(),
+      timezone: directory.city.timezone,
+      localDate: directory.localDate,
+      weekday: directory.weekday,
+    });
+  });
+
+  it('finds nothing far from every gym, and names the nearest city that has gyms', async () => {
+    // 40 mi north of Las Vegas, 10 mi radius.
+    const north = await nearby('lat=36.75&lng=-115.14&radius=10');
+    expect(north.data.schools).toEqual([]);
+    expect(north.data.cities).toEqual({});
+    expect(north.data.nearest).toMatchObject({ citySlug: 'las-vegas', name: 'Las Vegas', center: VEGAS });
+    expect(north.data.nearest.distanceMiles).toBeGreaterThan(35);
+    expect(north.data.nearest.distanceMiles).toBeLessThan(45);
+
+    // West Hartford, CT: still Las Vegas, about 2,260 mi away.
+    const ct = await nearby('lat=41.762&lng=-72.742');
+    expect(ct.data.schools).toEqual([]);
+    expect(ct.data.nearest).toMatchObject({ citySlug: 'las-vegas' });
+    expect(ct.data.nearest.distanceMiles).toBeGreaterThan(2000);
+  });
+
+  it('checks its input: lat and lng are required, the radius is clamped to 1-100', async () => {
+    expect((await nearby('lat=abc&lng=-115')).status).toBe(400);
+    expect((await nearby('lat=36.17')).status).toBe(400);
+    expect((await nearby('lat=95&lng=-115')).status).toBe(400);
+    expect((await nearby('lat=36.17&lng=-115.14&radius=0')).status).toBe(400);
+    expect((await nearby('lat=36.17&lng=-115.14&radius=-3')).status).toBe(400);
+    expect((await nearby('lat=36.17&lng=-115.14&radius=500')).data.radius).toBe(100);
+    expect((await nearby('lat=36.17&lng=-115.14&radius=0.2')).data.radius).toBe(1);
+  });
+
+  it('keeps a gym findable at its pin as MCP writes move it (the columns follow the map field)', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({
+        name: `it-nearby-${randomBytes(3).toString('hex')}`,
+        lifespan: null,
+        adminPermissions: TOOLS.map((t) => ({ action: `plugin::matfinder.mcp.${t.replace(/_/g, '-')}` })),
+      }),
+    });
+    expect(tokenRes.status).toBe(201);
+    const token = (await tokenRes.json()).data.accessKey;
+
+    const created = await callTool(token, 'upsert_school', {
+      name: `Integration Nearby Gym ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas',
+      address: '1 Pin Way, Las Vegas, NV',
+      latitude: 36.45,
+      longitude: -114.95,
+    });
+    expect(created.data).toMatchObject({ created: true, status: 'published' });
+    const slug = created.data.slug;
+    expect(await slugsNear(36.45, -114.95)).toEqual([slug]);
+
+    const moved = await callTool(token, 'upsert_school', { slug, address: '2 Pin Way, Las Vegas, NV', latitude: 36.55, longitude: -115.45 });
+    expect(moved.data).toMatchObject({ created: false, status: 'published' });
+    expect(await slugsNear(36.45, -114.95)).toEqual([]);
+    expect(await slugsNear(36.55, -115.45)).toEqual([slug]);
+
+    // A write without a location (pricing here) leaves the columns where they were.
+    await callTool(token, 'upsert_school', { slug, pricing: { visitorsWelcome: true } });
+    expect(await slugsNear(36.55, -115.45)).toEqual([slug]);
+  });
+
+  it('hides latitude and longitude from the Content Manager (they are never set by hand)', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const res = await fetch(`${API}/content-manager/content-types/api::school.school/configuration`, { headers: { Authorization: `Bearer ${jwt}` } });
+    expect(res.status).toBe(200);
+    const { data } = await res.json();
+    const layouts = JSON.stringify(data.contentType.layouts);
+    expect(layouts).toContain('"location"');
+    expect(layouts).not.toContain('"latitude"');
+    expect(layouts).not.toContain('"longitude"');
   });
 });
