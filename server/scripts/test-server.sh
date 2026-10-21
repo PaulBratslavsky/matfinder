@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Throwaway Strapi for the integration and e2e suites: a fresh SQLite DB (.tmp/test.db) with the sample seed, on
-# port 1342, run with `strapi start` (production mode: MCP lists exactly the 10 MatFinder tools).
+# port 1342, run with `strapi start` (production mode: MCP lists exactly the 11 MatFinder tools). The gym chat answers
+# from a script there (MATFINDER_AI_SCRIPTED=true), so no test reaches a model and no key is needed.
 # It builds into dist/, which `npm run develop` also uses, so stop the dev server first.
 #   scripts/test-server.sh start | stop | status
 set -uo pipefail
@@ -48,6 +49,7 @@ case "${1:-start}" in
     BETTER_AUTH_SECRET=test-better-auth-secret-0123456789 BETTER_AUTH_DASHBOARD_SECRET=test-dashboard-secret \
     BETTER_AUTH_URL="http://localhost:$PORT" WEB_ORIGINS="http://localhost:8083,http://localhost:8084" \
     SEED_SAMPLE_DATA=true MCP_ENABLED=true MAPBOX_GEOCODING_TOKEN= \
+    AI_API_KEY= MATFINDER_AI_SCRIPTED=true \
       launch > "$LOG" 2>&1 < /dev/null &
     for _ in $(seq 1 120); do
       if [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/_health")" = "204" ]; then

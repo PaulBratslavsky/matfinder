@@ -1,6 +1,7 @@
 /**
- * Development-only sample data (SEED_SAMPLE_DATA=true): one city, 3 affiliations, 6 instructors and 8 clearly
- * fictional "Sample … (Demo)" schools that cover every filter and empty state in the app. Idempotent: everything is
+ * Development-only sample data (SEED_SAMPLE_DATA=true): one city, 3 affiliations, 6 instructors, 8 clearly
+ * fictional "Sample … (Demo)" schools that cover every filter and empty state in the app, and a few gym knowledge
+ * entries for the gym chat. Idempotent: everything is
  * upserted by slug through the services (so the Document Service middlewares run), and a document is only written
  * or re-published when it differs, so a second boot changes nothing. No end-user accounts are seeded.
  */
@@ -220,6 +221,86 @@ const SCHOOLS: SampleSchool[] = [
   },
 ];
 
+/**
+ * Gym knowledge (plan 09): what the gym chat knows beyond a gym's page. Facts the page doesn't hold, so they never
+ * contradict it; `school: null` entries apply to every gym.
+ */
+const KNOWLEDGE: { school: string | null; question: string; answer: string; category: string }[] = [
+  {
+    school: 'sample-summerlin-bjj-demo',
+    question: 'Where do I park?',
+    answer: 'Free parking in the lot behind the building. The spaces out front belong to the café next door.',
+    category: 'visiting',
+  },
+  {
+    school: 'sample-summerlin-bjj-demo',
+    question: 'Can I borrow a gi for my first class?',
+    answer: 'Yes. Loaner gis in most sizes are at the front desk for a first visit. Bring your own after that.',
+    category: 'gear',
+  },
+  {
+    school: 'sample-henderson-grappling-demo',
+    question: 'Do I need to sign a waiver?',
+    answer: 'Yes. Fill it in online before your first class, or arrive 10 minutes early to sign it at the desk.',
+    category: 'policies',
+  },
+  {
+    school: 'sample-strip-jiu-jitsu-demo',
+    question: 'Are classes taught in English?',
+    answer: 'Yes, every class is taught in English. Two of the coaches also speak Spanish.',
+    category: 'visiting',
+  },
+  {
+    school: 'sample-garage-grappling-demo',
+    question: 'How do I find the entrance?',
+    answer: "It's a converted two-car garage behind the house, with no sign. Knock on the side gate.",
+    category: 'visiting',
+  },
+  {
+    school: 'sample-green-valley-grappling-demo',
+    question: 'From what age can kids join?',
+    answer: "Kids' classes are for ages 5 to 12. Teens train in the regular fundamentals class.",
+    category: 'kids',
+  },
+  {
+    school: null,
+    question: 'What should I bring to a first BJJ class?',
+    answer:
+      'Most gyms ask for a clean gi (or a rash guard and shorts for no-gi), a water bottle, flip-flops for walking off the mats, and trimmed nails. Ask the gym whether they lend gis.',
+    category: 'gear',
+  },
+  {
+    school: null,
+    question: 'Do I need experience to drop in?',
+    answer: 'Usually not. Tell the coach before class that you are new so they can pair you well, and expect to sign a waiver.',
+    category: 'visiting',
+  },
+  {
+    school: null,
+    question: "What's the difference between gi and no-gi?",
+    answer:
+      'Gi classes are trained in the heavy jacket and pants, so you can grip the cloth. No-gi classes are in a rash guard and shorts, with no cloth grips and usually a faster pace.',
+    category: 'gear',
+  },
+];
+
+/** Writes and publishes each sample entry unless its published version already says the same. */
+async function seedSampleKnowledge(strapi: Core.Strapi) {
+  const docs = (uid: string) => strapi.documents(uid as any) as any;
+  const knowledge = docs('plugin::matfinder.knowledge');
+  for (const entry of KNOWLEDGE) {
+    const school = entry.school ? await docs('api::school.school').findFirst({ status: 'draft', filters: { slug: entry.school }, fields: ['slug'] }) : null;
+    if (entry.school && !school) continue;
+    const scope = school ? { documentId: school.documentId } : { id: { $null: true } };
+    const live = await knowledge.findFirst({ status: 'published', filters: { question: entry.question, school: scope }, fields: ['answer', 'category'] });
+    if (live && live.answer === entry.answer && live.category === entry.category) continue;
+    const draft = await knowledge.findFirst({ status: 'draft', filters: { question: entry.question, school: scope }, fields: ['question'] });
+    const data = { question: entry.question, answer: entry.answer, category: entry.category, source: 'admin', school: school ? { set: [school.documentId] } : { set: [] } };
+    const saved = draft ? await knowledge.update({ documentId: draft.documentId, status: 'draft', data }) : await knowledge.create({ data });
+    await knowledge.publish({ documentId: saved.documentId });
+  }
+}
+
 export async function seedSampleData(strapi: Core.Strapi) {
   const docs = (uid: string) => strapi.documents(uid as any) as any;
   const publishIfNeeded = async (uid: string, result: { documentId: string; status: string }) => {
@@ -248,5 +329,8 @@ export async function seedSampleData(strapi: Core.Strapi) {
     if (!unchanged) await schools.setScheduleDraft(school.slug, sessions);
     await publishIfNeeded('api::school.school', { documentId: upserted.documentId, status: unchanged ? current.status : 'unpublished-changes' });
   }
-  strapi.log.info(`[matfinder] sample data ready: ${AFFILIATIONS.length} affiliations, ${INSTRUCTORS.length} instructors, ${SCHOOLS.length} schools (Demo)`);
+  await seedSampleKnowledge(strapi);
+  strapi.log.info(
+    `[matfinder] sample data ready: ${AFFILIATIONS.length} affiliations, ${INSTRUCTORS.length} instructors, ${SCHOOLS.length} schools, ${KNOWLEDGE.length} knowledge entries (Demo)`,
+  );
 }

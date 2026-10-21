@@ -1,12 +1,14 @@
 # MatFinder plugin
 
-A local Strapi plugin (`server/src/plugins/matfinder`) for curating the directory. The plan is
-[`docs/plan/07-matfinder-plugin.md`](../../../../docs/plan/07-matfinder-plugin.md).
+A local Strapi plugin (`server/src/plugins/matfinder`) for curating the directory. The plans are
+[`docs/plan/07-matfinder-plugin.md`](../../../../docs/plan/07-matfinder-plugin.md) and, for the AI chats,
+[`docs/plan/09-ai-chat.md`](../../../../docs/plan/09-ai-chat.md).
 
 What it adds:
-- **MCP tools.** 10 curation tools, each behind its own admin action `plugin::matfinder.mcp.<tool>`. Grant them to an
+- **MCP tools.** 11 curation tools, each behind its own admin action `plugin::matfinder.mcp.<tool>`. Grant them to an
   admin token under Settings → Admin Tokens → Plugins → MatFinder. Two are for gyms found on the web:
-  `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; refuses likely duplicates).
+  `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; refuses likely duplicates). One,
+  `upsert_knowledge`, adds or updates a gym knowledge entry (same gym and question → the same entry).
 - **Agent writes go live.** After each write tool, `services/publishing.ts` publishes what it changed and the result
   says `status: published`, or `notPublishedBecause` when validation stops it. Set `MATFINDER_AUTO_PUBLISH=false`
   (plugin config `autoPublish`) to keep agent writes as drafts for review instead. No tool unpublishes or deletes.
@@ -22,7 +24,28 @@ What it adds:
   review* (new and contacted, the newest five).
 - **Admin API** (admin session with `plugin::matfinder.read`): `GET /matfinder/summary`, `/gyms`, `/from-web`,
   `/claims`; with `claims.review`: `POST /matfinder/claims/:documentId/contacted|accept|reject|remove-owner`.
-- **Content API** (signed-in app users): `POST /api/matfinder/claims`, `GET /api/matfinder/claims/mine?school=`.
+- **Content API** (signed-in app users): `POST /api/matfinder/claims`, `GET /api/matfinder/claims/mine?school=`,
+  `GET /api/matfinder/chat/status` and `POST /api/matfinder/schools/:slug/chat` (the gym chat, below).
+- **Gym knowledge** (`plugin::matfinder.knowledge`, Content Manager → *Gym knowledge*, Draft & Publish): a question,
+  its answer, a category and an optional gym; no gym means it applies to every gym. Written in the Content Manager or
+  by agents through `upsert_knowledge`. The sample seed adds a few.
+- **The gym chat** ("Ask about this gym", plan 09 M17). A signed-in user asks about one gym; the answer streams back
+  as server-sent events (AG-UI, what TanStack AI's `useChat` reads). The model reads the gym's published page (the
+  school service's `getBySlug`, never sources, origin or claimants) and its published knowledge plus the general
+  entries, as the cached start of the system prompt, then the gym's local time. No tools, no embeddings. Limits: 500
+  characters a question, 12 questions a chat, 40 a user a day (in memory), 30 seconds, 4,000 output tokens. Every
+  failure is a `RUN_ERROR` in plain words inside a 200 stream (`@tanstack/ai-client` doesn't read HTTP error bodies);
+  only a body that isn't a run input is a 400. The log has one line a question (user id, gym, entries, finish, time,
+  tokens), never the text, and never the key.
+- **AI settings:** `AI_API_KEY` (an Anthropic key; empty turns the chat off and `chat/status` says `ready: false`),
+  `AI_GYM_CHAT_MODEL` and `AI_ADMIN_CHAT_MODEL` (default `claude-opus-5-5`). On the test server
+  `MATFINDER_AI_SCRIPTED=true` answers from a script that repeats what the model would read, so tests check the
+  context with no model and no key; never set it in production.
+- **TanStack AI** (`@tanstack/ai`, `@tanstack/ai-anthropic`, pinned exactly; upgrade them together). They're ES modules
+  only and the plugin's server is CommonJS, so `server/src/ai/sdk.ts` is the one file that loads them, with
+  `await import()`, and `scripts/check-esm-import.mjs` (run by `npm run build:plugin`) fails if a bundle loads them
+  statically. The streaming route sends the SDK's response body to Koa with `Readable.fromWeb` and
+  `X-Accel-Buffering: no`. Ported from the maison plugin's assistant.
 
 **Build it before Strapi starts.** Strapi skips a plugin whose `dist/server` is missing, and a boot without MatFinder
 deletes its claims table and every token grant for its tools. `config/plugins.ts` therefore refuses to start without
