@@ -30,7 +30,19 @@ export default ({ env }) => {
     // MatFinder's own plugin: the MCP curation tools, the admin area and the homepage widgets (src/plugins/matfinder).
     // Built to its dist/ by `npm run build:plugin`, which develop, build and postinstall run first.
     // Agent writes (its MCP tools) go live right away; MATFINDER_AUTO_PUBLISH=false keeps them as drafts for review.
-    matfinder: { enabled: true, resolve: MATFINDER, config: { autoPublish: env.bool('MATFINDER_AUTO_PUBLISH', true) } },
+    // The gym chat (plan 09) uses one Anthropic key and a model per chat; without AI_API_KEY the chats are off. Empty
+    // values count as not set. MATFINDER_AI_SCRIPTED is for the test server only (scripted answers, no model).
+    matfinder: {
+      enabled: true,
+      resolve: MATFINDER,
+      config: {
+        autoPublish: env.bool('MATFINDER_AUTO_PUBLISH', true),
+        aiApiKey: env('AI_API_KEY', '') || null,
+        gymChatModel: env('AI_GYM_CHAT_MODEL', '') || 'claude-opus-5-5',
+        adminChatModel: env('AI_ADMIN_CHAT_MODEL', '') || 'claude-opus-5-5',
+        aiScripted: env.bool('MATFINDER_AI_SCRIPTED', false),
+      },
+    },
     'map-box': {
       enabled: true,
       ...(localMapBoxPath ? { resolve: localMapBoxPath } : {}),

@@ -19,6 +19,19 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
 
   const autoPublish = () => (strapi.plugin('matfinder').config('autoPublish', true) as boolean) !== false;
 
+  /** Publishes a document's draft when it differs from the live version, and reports where it stands. */
+  async function afterWriteDocument(uid: string, documentId: string): Promise<AfterWrite> {
+    const status = await statusOf(uid, documentId);
+    if (status === 'published' || !autoPublish()) return { status };
+    try {
+      await docs(strapi, uid).publish({ documentId });
+    } catch (e) {
+      if ((e as { name?: string })?.name !== 'ValidationError') throw e;
+      return { status, notPublishedBecause: (e as Error).message };
+    }
+    return { status: await statusOf(uid, documentId) };
+  }
+
   return {
     autoPublish,
 
@@ -29,15 +42,10 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     async afterWrite(uid: string, slug: string): Promise<AfterWrite> {
       const draft = await docs(strapi, uid).findFirst({ status: 'draft', filters: { slug }, fields: ['slug'] });
       if (!draft) throw new Error(`[matfinder] no ${uid} draft with slug ${slug} after a write`);
-      const status = await statusOf(uid, draft.documentId);
-      if (status === 'published' || !autoPublish()) return { status };
-      try {
-        await docs(strapi, uid).publish({ documentId: draft.documentId });
-      } catch (e) {
-        if ((e as { name?: string })?.name !== 'ValidationError') throw e;
-        return { status, notPublishedBecause: (e as Error).message };
-      }
-      return { status: await statusOf(uid, draft.documentId) };
+      return afterWriteDocument(uid, draft.documentId);
     },
+
+    /** afterWrite for a document without a slug (a knowledge entry), by its documentId. */
+    afterWriteDocument,
   };
 };

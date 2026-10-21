@@ -17,13 +17,17 @@ export default {
   },
   /**
    * Content API (the app), at /api/matfinder/...: signed-in users only. The Authenticated role's grants for
-   * plugin::matfinder.claim.create and .mine are seeded by the app (server/src/lib/permissions.ts).
+   * plugin::matfinder.claim.create and .mine, and gym-chat.ask and .status, are seeded by the app
+   * (server/src/lib/permissions.ts).
    */
   'content-api': {
     type: 'content-api',
     routes: [
       { method: 'POST', path: '/claims', handler: 'claim.create' },
       { method: 'GET', path: '/claims/mine', handler: 'claim.mine' },
+      // The gym chat (plan 09, M17): one question about one gym, streamed as server-sent events.
+      { method: 'GET', path: '/chat/status', handler: 'gym-chat.status' },
+      { method: 'POST', path: '/schools/:slug/chat', handler: 'gym-chat.ask' },
     ],
   },
 };
