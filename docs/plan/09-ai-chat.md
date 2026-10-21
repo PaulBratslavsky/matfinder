@@ -1,6 +1,6 @@
 # 09 · Ask about a gym, and the MatFinder assistant
 
-**Status:** plan, for review (2026-10-21). Builds on M0–M13 (merged) and the plugin admin redesign (PR #43).
+**Status:** plan; D1–D3 decided (2026-10-21), the rest for review. Builds on M0–M13 (merged) and the plugin admin redesign (PR #43).
 Independent of plan 08 (M14–M16). Milestones **M17–M20** below; their issue drafts are in `issues/14-m17-…` to
 `issues/17-m20-…`.
 
@@ -23,9 +23,17 @@ does it:
 | A gym knowledge base collection in Strapi; "think of the best way" | M17: one knowledge collection, read whole into the prompt (D4, D5) |
 | A chat in the plugin that makes managing everything easier, based on maison's plugin | M19 (assistant tab), M20 (saved chats, unanswered questions) |
 
+## What the user decided (2026-10-21)
+
+| Question | Decision |
+|---|---|
+| D1 Provider | **Anthropic**, through TanStack AI's Anthropic adapter, one server-side key in `AI_API_KEY`. |
+| D2 Models | **Claude Opus 5.5 (`claude-opus-5-5`) for both chats.** Each chat keeps its own setting, so either can change later without code. |
+| D3 New dependencies | **Approved:** the TanStack AI packages pinned to exact versions (upgraded together), `react-markdown` and `remark-gfm`. |
+
 ## Proposed, for your review
 
-Each is a recommendation. **D1–D3 are yours to decide** (provider, cost, new dependencies): say which you want.
+Each is a recommendation. D1–D3 are decided above; say if you want any of the others different.
 
 | # | Question | Recommendation |
 |---|---|---|
