@@ -24,7 +24,7 @@ TanStack AI and Anthropic, on the server.
 - [ ] **TanStack AI loader** `server/src/ai/sdk.ts`, ported from maison: the only file that names `@tanstack/*`,
       through a cached `await import()`; `scripts/check-esm-import.mjs` (or equivalent) runs after `build:plugin` and
       fails on a static import. `ai/provider.ts`: the Anthropic adapter from the plugin config (`aiApiKey`,
-      `gymChatModel`), and a test-only scripted adapter switched on by `MATFINDER_AI_SCRIPTED=1`, which
+      `gymChatModel`), and a test-only scripted adapter switched on by `MATFINDER_AI_SCRIPTED=true`, which
       `scripts/test-server.sh` sets and production never does.
 - [ ] **Config:** `aiApiKey` (`AI_API_KEY`), `gymChatModel` (`AI_GYM_CHAT_MODEL`), `adminChatModel`
       (`AI_ADMIN_CHAT_MODEL`) in `config/plugins.ts`; names (no values) in `.env.example`. Defaults per plan 09 → D2.

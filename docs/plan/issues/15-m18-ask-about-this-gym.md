@@ -22,7 +22,7 @@ iOS and Android, using `useChat` from TanStack AI against {{#m17}}'s endpoint.
 - [ ] **Dependencies:** `@tanstack/ai-react` and `@tanstack/ai-client` in `mobile/`, the exact versions the server
       uses.
 - [ ] **Tests:** unit (`lib/gym-chat.test.ts`: suggested questions, error text); Playwright (`e2e/`) against the test
-      server with its scripted adapter (`MATFINDER_AI_SCRIPTED=1`).
+      server with its scripted adapter (`MATFINDER_AI_SCRIPTED=true`).
 
 ## Reference
 Plan 09 → *The app: "Ask about this gym"*. {{#m17}}'s endpoint and status route. Maison's admin `useChat` wiring
