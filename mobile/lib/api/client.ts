@@ -38,6 +38,12 @@ export function setCookieProvider(fn: () => string | Promise<string>) {
   cookieProvider = fn;
 }
 
+/** Native only: the session cookie, for requests made outside apiGet/apiPost (the gym chat's stream). */
+export async function sessionCookie(): Promise<string | null> {
+  if (Platform.OS === 'web' || !cookieProvider) return null;
+  return (await cookieProvider()) || null;
+}
+
 /**
  * GET a Strapi path with a qs-encoded query. Native sends the session as an explicit Cookie header (no browser
  * cookie jar); the web relies on the browser's cookies with `credentials: 'include'`.

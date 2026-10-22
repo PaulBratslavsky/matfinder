@@ -19,6 +19,7 @@ import { SchoolHeader } from '@/components/school/SchoolHeader';
 import { SchoolTopBar } from '@/components/school/SchoolTopBar';
 import { VisitChecklist } from '@/components/school/VisitChecklist';
 import { WeekGrid } from '@/components/school/WeekGrid';
+import { useChatStatus } from '@/hooks/useChatStatus';
 import { useCityNow } from '@/hooks/useCityNow';
 import { useSchool } from '@/hooks/useSchool';
 import { useSession } from '@/hooks/useSession';
@@ -46,6 +47,7 @@ export default function SchoolScreen() {
   const school = useSchool(slug);
   const now = useCityNow(school.data?.city?.timezone);
   const user = useUserLocation();
+  const chatStatus = useChatStatus();
   const signIn = { pathname: '/sign-in', params: { redirect: `/schools/${slug}` } } as const;
 
   const s = school.data;
@@ -114,6 +116,15 @@ export default function SchoolScreen() {
         <SchoolHeader school={s} today={now?.localDate ?? null} distanceMiles={distance} />
         <ClaimLine slug={s.slug} claimed={s.claimed} />
         {!!s.shortDescription && <Text style={styles.short}>{s.shortDescription}</Text>}
+        {chatStatus.data?.ready && (
+          <ActionButton
+            label="Ask about this gym"
+            icon="chatbubble-ellipses-outline"
+            variant="outline"
+            onPress={() => router.push({ pathname: '/schools/[slug]/ask', params: { slug: s.slug } })}
+            style={styles.ask}
+          />
+        )}
         <NextClassCard school={s} next={week?.next ?? null} now={now} />
 
         <SectionTitle>{checklistTitle}</SectionTitle>
@@ -177,4 +188,5 @@ const useStyles = makeStyles((t) => ({
   muted: { ...t.type.body, fontSize: 15, color: t.colors.textSecondary },
   tz: { marginTop: 12, fontSize: 13 },
   gallery: { marginTop: 16 },
+  ask: { marginTop: 16 },
 }));
