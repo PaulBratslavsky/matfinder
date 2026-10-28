@@ -6,6 +6,7 @@
 export default {
   routes: [
     { method: 'GET', path: '/schools/directory', handler: 'api::school.school.directory' },
+    { method: 'GET', path: '/schools/nearby', handler: 'api::school.school.nearby' },
     { method: 'GET', path: '/schools/slug/:slug', handler: 'api::school.school.bySlug' },
   ],
 };

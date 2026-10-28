@@ -257,7 +257,9 @@
         "area:backend"
       ],
       "parent": null,
-      "blockedBy": []
+      "blockedBy": [],
+      "number": 39,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/39"
     },
     {
       "key": "m15",
@@ -271,7 +273,9 @@
       "parent": null,
       "blockedBy": [
         "m14"
-      ]
+      ],
+      "number": 40,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/40"
     },
     {
       "key": "m16",
@@ -286,7 +290,9 @@
       "blockedBy": [
         "m14",
         "m15"
-      ]
+      ],
+      "number": 41,
+      "url": "https://github.com/PaulBratslavsky/matfinder/issues/41"
     },
     {
       "key": "m17",
