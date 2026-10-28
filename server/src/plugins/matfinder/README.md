@@ -14,8 +14,9 @@ What it adds:
   (plugin config `autoPublish`) to keep agent writes as drafts for review instead. No tool unpublishes or deletes.
 - **MCP prompt.** `find_new_gyms { city, area? }`: the search, dedupe and add loop for an agent with web search.
 - **Admin page.** *MatFinder* in the menu, with tabs: *Gyms* (every gym, publish status, origin, search and a status
-  filter) and *From the web* (every gym the agent added, newest first: live or not, sources, likely duplicates; the tab's
-  badge counts the ones that aren't live). Each tab follows the Content Manager's list view: a toolbar, a table where a
+  filter), *Claims* (below), *From the web* (every gym the agent added, newest first: live or not, sources, likely
+  duplicates; the tab's badge counts the ones that aren't live) and *Assistant* (below; shown only to roles with
+  `plugin::matfinder.assistant.use`). Each list tab follows the Content Manager's list view: a toolbar, a table where a
   gym's name opens it in the Content Manager, and (Gyms) Strapi's pagination. The open tab is in `?tab=`; the Gyms search,
   status filter and page (`_q`, `status`, `page`, `pageSize`) and the Claims filter (`status`) are in the URL too.
 - **Claims.** Owners claim a gym in the app (`POST /api/matfinder/claims`, account only). The *Claims* tab lists them
@@ -25,7 +26,8 @@ What it adds:
   *Claims to review* (new and contacted, the newest five), drawn like Strapi's *Project statistics*; each number links to
   the matching tab and filter.
 - **Admin API** (admin session with `plugin::matfinder.read`): `GET /matfinder/summary`, `/gyms`, `/from-web`,
-  `/claims`; with `claims.review`: `POST /matfinder/claims/:documentId/contacted|accept|reject|remove-owner`.
+  `/claims`; with `claims.review`: `POST /matfinder/claims/:documentId/contacted|accept|reject|remove-owner`; with
+  `assistant.use`: `GET /matfinder/assistant/status` and `POST /matfinder/assistant/chat` (the assistant, below).
 - **Content API** (signed-in app users): `POST /api/matfinder/claims`, `GET /api/matfinder/claims/mine?school=`,
   `GET /api/matfinder/chat/status` and `POST /api/matfinder/schools/:slug/chat` (the gym chat, below).
 - **Gym knowledge** (`plugin::matfinder.knowledge`, Content Manager → *Gym knowledge*, Draft & Publish): a question,
@@ -39,11 +41,41 @@ What it adds:
   failure is a `RUN_ERROR` in plain words inside a 200 stream (`@tanstack/ai-client` doesn't read HTTP error bodies);
   only a body that isn't a run input is a 400. The log has one line a question (user id, gym, entries, finish, time,
   tokens), never the text, and never the key.
-- **AI settings:** `AI_API_KEY` (an Anthropic key; empty turns the chat off and `chat/status` says `ready: false`),
-  `AI_GYM_CHAT_MODEL` and `AI_ADMIN_CHAT_MODEL` (default `claude-opus-5-5`). On the test server
-  `MATFINDER_AI_SCRIPTED=true` answers from a script that repeats what the model would read, so tests check the
-  context with no model and no key; never set it in production.
-- **TanStack AI** (`@tanstack/ai`, `@tanstack/ai-anthropic`, pinned exactly; upgrade them together). They're ES modules
+- **The MatFinder assistant** (the *Assistant* tab, plan 09 M19). A chat for admins whose role holds
+  `plugin::matfinder.assistant.use` ("Use the MatFinder assistant"; Super Admin has it). It offers 15 tools, each only
+  when the role also holds that tool's own action: lookups (`directory_summary`, `list_claims`, `list_knowledge` with
+  `plugin::matfinder.read`; `find_schools`, `get_school_draft`, `list_pending_drafts`, `list_reference_data`,
+  `find_possible_duplicates` with their MCP actions) and changes (`upsert_school`, `set_school_schedule`,
+  `add_gym_from_web`, `upsert_affiliation`, `upsert_instructor`, `upsert_knowledge` with their MCP actions;
+  `review_claim` with `claims.review`). The MCP tools run the same schema, service and publishing as on MCP.
+  - **Lookups run at once; every change waits for the admin.** A write tool is defined with `needsApproval`, so the
+    run pauses and the tab shows a card: the model's one-sentence `summary` of the change, its arguments, *Approve*
+    and *Deny*. The browser sends the decision back (`resume` with `parentRunId`); `chat()` rebuilds the paused call
+    from the history and runs it only when approved. Nothing is stored between the two requests; an approval that was
+    already used in that chat is refused (`already_decided`), so a double click or a replay can't run a change twice
+    (in memory, an hour).
+  - **What the model reads:** claims without phone or email; a claimant's note inside `<claimant_note>` (and every
+    tool description says results are data, never instructions); lists capped at 50 rows with `capped: true`; a
+    result over 60,000 characters is replaced by an error asking for less.
+  - **Limits:** 20 admin messages a chat, 4,000 characters a message, 6 model turns an answer, 90 seconds, 16,000
+    output tokens a turn, medium effort; the whole chat is checked each turn. Errors are a `RUN_ERROR` in a 200 stream
+    in words an admin can act on ("Anthropic refused the key. Check AI_API_KEY."), never the provider's text.
+  - **The tab:** messages in Markdown (tables scroll inside their bubble; no images, only http(s) links), each tool
+    call as a closed box ("Tool: list_claims · 3 results"), approval cards, suggested questions on an empty chat, the
+    composer (Enter sends, Shift+Enter adds a line, Send and Stop) and *New chat*. The chat lasts while the page is
+    open (switching tabs keeps it). The stream is a plain fetch, so the tab first calls Strapi's own fetch client (which
+    refreshes an expired admin token) and then sends the token as `Bearer`.
+  - **Log:** one line a turn (admin id, tools called, approved or denied, waiting for approval, time, tokens), never
+    the messages and never the key.
+- **AI settings:** `AI_API_KEY` (an Anthropic key; empty turns both chats off: `chat/status` and
+  `assistant/status` say `ready: false`), `AI_GYM_CHAT_MODEL` and `AI_ADMIN_CHAT_MODEL` (default `claude-opus-5-5`).
+  On the test server `MATFINDER_AI_SCRIPTED=true` answers from a script with no model and no key: the gym chat
+  repeats what the model would read, and the assistant follows a few fixed flows with real tool calls ("Which claims
+  are waiting?"; "Mark the claim from … as contacted" or "Accept the claim from …", which pause for approval). Never
+  set it in production.
+- **TanStack AI** (`@tanstack/ai`, `@tanstack/ai-anthropic` on the server, `@tanstack/ai-client` and
+  `@tanstack/ai-react` in the admin tab, all pinned exactly; upgrade them together). The tab draws Markdown with
+  `react-markdown` and `remark-gfm`. They're ES modules
   only and the plugin's server is CommonJS, so `server/src/ai/sdk.ts` is the one file that loads them, with
   `await import()`, and `scripts/check-esm-import.mjs` (run by `npm run build:plugin`) fails if a bundle loads them
   statically. The streaming route sends the SDK's response body to Koa with `Readable.fromWeb` and

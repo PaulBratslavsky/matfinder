@@ -13,6 +13,9 @@ export default {
       { method: 'POST', path: '/claims/:documentId/accept', handler: 'claims.accept', config: { policies: allow(ACTIONS.review) } },
       { method: 'POST', path: '/claims/:documentId/reject', handler: 'claims.reject', config: { policies: allow(ACTIONS.review) } },
       { method: 'POST', path: '/claims/:documentId/remove-owner', handler: 'claims.removeOwner', config: { policies: allow(ACTIONS.review) } },
+      // The Assistant tab (plan 09, M19). Each tool is checked again against the admin's role inside the turn.
+      { method: 'GET', path: '/assistant/status', handler: 'assistant.status', config: { policies: allow(ACTIONS.assistant) } },
+      { method: 'POST', path: '/assistant/chat', handler: 'assistant.chat', config: { policies: allow(ACTIONS.assistant) } },
     ],
   },
   /**

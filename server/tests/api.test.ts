@@ -36,6 +36,26 @@ async function signUp(): Promise<string> {
   return res.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
 }
 
+/** A new admin whose role holds exactly these actions, through the admin registration flow. Returns its JWT. */
+async function adminWith(superJwt: string, actions: string[]): Promise<string> {
+  const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
+  const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-role-${randomBytes(3).toString('hex')}`, description: actions.join(', ') }) })).json()).data;
+  await fetch(`${API}/admin/roles/${role.id}/permissions`, {
+    method: 'PUT',
+    headers: auth,
+    body: JSON.stringify({ permissions: actions.map((action) => ({ action, subject: null, properties: {}, conditions: [] })) }),
+  });
+  const user = (
+    await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Role', lastname: 'Test', email: `it-role-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
+  ).data;
+  const reg = await fetch(`${API}/admin/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Role', lastname: 'Test', password: `Aa1${randomBytes(8).toString('hex')}` } }),
+  });
+  return (await reg.json()).data.token;
+}
+
 let rpcId = 0;
 async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}) {
   const res = await fetch(`${API}/mcp`, {
@@ -307,25 +327,8 @@ describe('gym claims', () => {
     return dir.data.schools.find((s: { slug: string }) => s.slug === SLUG).claimed;
   };
 
-  /** An admin with only plugin::matfinder.read (no claims.review), through the admin registration flow. */
-  async function readOnlyAdmin(superJwt: string): Promise<string> {
-    const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
-    const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
-    await fetch(`${API}/admin/roles/${role.id}/permissions`, {
-      method: 'PUT',
-      headers: auth,
-      body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
-    });
-    const user = (
-      await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
-    ).data;
-    const reg = await fetch(`${API}/admin/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
-    });
-    return (await reg.json()).data.token;
-  }
+  /** An admin with only plugin::matfinder.read (no claims.review). */
+  const readOnlyAdmin = (superJwt: string) => adminWith(superJwt, ['plugin::matfinder.read']);
 
   it('a signed-in owner claims a gym; bad and repeated claims are refused', async () => {
     expect((await claim(undefined, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199' })).status).toBeGreaterThanOrEqual(401);
@@ -492,6 +495,110 @@ describe('gym chat (scripted model)', () => {
     const { answer } = await read(await ask(user, ['Do visitors pay a mat fee?']));
     expect(answer).toContain('Visitors pay the drop-in fee.');
     expect(answer).not.toContain('sign a waiver at the desk');
+  });
+});
+
+describe('MatFinder assistant (scripted model)', () => {
+  // The test server's assistant follows a script (MATFINDER_AI_SCRIPTED): "claims" looks them up; "contacted" looks
+  // them up and then asks to mark the newest open claim as contacted, which waits for the admin's decision.
+  const GYM = 'sample-henderson-grappling-demo';
+  const send = (jwt: string, body: unknown) =>
+    fetch(`${API}/matfinder/assistant/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` }, body: JSON.stringify(body) });
+  const statusOf = (jwt: string) => fetch(`${API}/matfinder/assistant/status`, { headers: { Authorization: `Bearer ${jwt}` } });
+  const events = async (res: Response) =>
+    (await res.text())
+      .split('\n\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line.replace(/^data: /, '')) as { type: string; [k: string]: any });
+  const runInput = (messages: unknown[], more: Record<string, unknown> = {}) => ({
+    threadId: `t-${randomBytes(3).toString('hex')}`,
+    runId: `r-${randomBytes(3).toString('hex')}`,
+    state: {},
+    tools: [],
+    context: [],
+    forwardedProps: {},
+    messages,
+    ...more,
+  });
+  /** Asks to mark the newest open claim as contacted; returns the paused run. */
+  const askToMark = async (jwt: string) => {
+    const input = runInput([{ id: 'u1', role: 'user', content: 'Mark the newest claim as contacted' }]);
+    const out = await events(await send(jwt, input));
+    const finished = out.filter((e) => e.type === 'RUN_FINISHED').at(-1)!;
+    return { threadId: input.threadId, finished, snapshot: out.find((e) => e.type === 'MESSAGES_SNAPSHOT')?.messages, out };
+  };
+  const decide = async (jwt: string, paused: Awaited<ReturnType<typeof askToMark>>, approved: boolean) =>
+    events(
+      await send(jwt, {
+        ...runInput(paused.snapshot, { threadId: paused.threadId, parentRunId: paused.finished.runId }),
+        resume: [{ interruptId: paused.finished.outcome.interrupts[0].id, status: 'resolved', payload: { approved } }],
+      }),
+    );
+  const claimStatus = async (jwt: string, id: string) =>
+    (await (await fetch(`${API}/matfinder/claims`, { headers: { Authorization: `Bearer ${jwt}` } })).json()).items.find((c: { documentId: string }) => c.documentId === id)?.status;
+
+  it('lists every tool for a super admin, marks the writes, and needs "Use the MatFinder assistant"', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const status = await (await statusOf(jwt)).json();
+    expect(status).toMatchObject({ ready: true, model: 'scripted (test server)' });
+    expect(status.tools).toHaveLength(15);
+    expect(status.tools.find((t: { name: string }) => t.name === 'review_claim')).toEqual({ name: 'review_claim', label: 'Review a claim', write: true });
+    expect(JSON.stringify(status)).not.toMatch(/sk-|AI_API_KEY=/);
+
+    const noAssistant = await adminWith(jwt, ['plugin::matfinder.read']);
+    expect((await statusOf(noAssistant)).status).toBe(403);
+    expect((await send(noAssistant, runInput([{ id: 'u1', role: 'user', content: 'Hi' }]))).status).toBe(403);
+    expect([401, 403]).toContain((await fetch(`${API}/matfinder/assistant/status`)).status);
+
+    // With the assistant but not claims.review: the lookups, and no review_claim.
+    const lookups = await adminWith(jwt, ['plugin::matfinder.read', 'plugin::matfinder.assistant.use']);
+    const theirs = await (await statusOf(lookups)).json();
+    expect(theirs.tools.map((t: { name: string }) => t.name)).toEqual(['directory_summary', 'list_claims', 'list_knowledge']);
+  });
+
+  it('looks claims up, pauses on a change, writes nothing on Deny, and writes once on Approve', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const made = await fetch(`${API}/api/matfinder/claims`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: await signUp() },
+      body: JSON.stringify({ schoolSlug: GYM, role: 'owner', phone: '702-555-0177', message: 'Assistant test claim.' }),
+    });
+    expect(made.status).toBe(201);
+
+    const lookup = await events(await send(jwt, runInput([{ id: 'u1', role: 'user', content: 'Which claims are waiting?' }])));
+    expect(lookup.find((e) => e.type === 'TOOL_CALL_START')?.toolCallName).toBe('list_claims');
+    const listed = JSON.parse(lookup.find((e) => e.type === 'TOOL_CALL_RESULT')!.content);
+    const ours = listed.claims.find((c: { gymSlug: string }) => c.gymSlug === GYM);
+    expect(ours).toMatchObject({ claimant: 'Integration Test', status: 'pending', note: '<claimant_note>Assistant test claim.</claimant_note>' });
+    expect(JSON.stringify(listed)).not.toContain('702-555-0177');
+
+    const first = await askToMark(jwt);
+    expect(first.finished.outcome).toMatchObject({ type: 'interrupt', interrupts: [{ metadata: { toolName: 'review_claim', input: { claimId: ours.id, action: 'contacted' } } }] });
+    expect(await claimStatus(jwt, ours.id)).toBe('pending');
+    const denied = await decide(jwt, first, false);
+    expect(denied.some((e) => e.type === 'RUN_ERROR')).toBe(false);
+    expect(await claimStatus(jwt, ours.id)).toBe('pending');
+
+    const second = await askToMark(jwt);
+    const approved = await decide(jwt, second, true);
+    expect(approved.find((e) => e.type === 'TOOL_CALL_RESULT')?.content).toContain('"status":"contacted"');
+    expect(await claimStatus(jwt, ours.id)).toBe('contacted');
+    const claims = await (await fetch(`${API}/matfinder/claims`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(claims.items.find((c: { documentId: string }) => c.documentId === ours.id).handledBy).toBeTruthy();
+
+    // The same approval sent again is refused, so the change can't run twice.
+    const again = await decide(jwt, second, true);
+    expect(again).toEqual([expect.objectContaining({ type: 'RUN_ERROR', code: 'already_decided' })]);
+  });
+
+  it('refuses a body that is not a chat request with a 400, and a long chat in words', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    expect((await send(jwt, { question: 'hi' })).status).toBe(400);
+    const long = await events(await send(jwt, runInput(Array.from({ length: 21 }, (_, i) => ({ id: `u${i}`, role: 'user', content: 'Hi' })))));
+    expect(long[0]).toMatchObject({ type: 'RUN_ERROR', code: 'chat_too_long', message: 'This chat is long. Start a new chat.' });
   });
 });
 

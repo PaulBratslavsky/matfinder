@@ -5,6 +5,8 @@ export const TABS = [
   { id: 'gyms', label: 'Gyms' },
   { id: 'claims', label: 'Claims' },
   { id: 'from-web', label: 'From the web' },
+  // Shown only to admins whose role holds "Use the MatFinder assistant" (MatFinderPage).
+  { id: 'assistant', label: 'Assistant' },
 ] as const;
 
 export type TabId = (typeof TABS)[number]['id'];
