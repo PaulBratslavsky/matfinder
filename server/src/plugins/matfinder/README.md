@@ -15,13 +15,15 @@ What it adds:
 - **MCP prompt.** `find_new_gyms { city, area? }`: the search, dedupe and add loop for an agent with web search.
 - **Admin page.** *MatFinder* in the menu, with tabs: *Gyms* (every gym, publish status, origin, search and a status
   filter) and *From the web* (every gym the agent added, newest first: live or not, sources, likely duplicates; the tab's
-  badge counts the ones that aren't live).
-  The open tab is in `?tab=`.
+  badge counts the ones that aren't live). Each tab follows the Content Manager's list view: a toolbar, a table where a
+  gym's name opens it in the Content Manager, and (Gyms) Strapi's pagination. The open tab is in `?tab=`; the Gyms search,
+  status filter and page (`_q`, `status`, `page`, `pageSize`) and the Claims filter (`status`) are in the URL too.
 - **Claims.** Owners claim a gym in the app (`POST /api/matfinder/claims`, account only). The *Claims* tab lists them
   with phone and note; with `plugin::matfinder.claims.review` you mark them contacted, accept or reject (a note is
   required to reject or to remove an owner). An accepted claim makes the gym `claimed: true` in the public API.
-- **Homepage widgets.** *Gym directory* (published, from the web this week, changes waiting, drafts, total) and *Claims to
-  review* (new and contacted, the newest five).
+- **Homepage widgets.** *Gym directory* (all gyms, published, modified, drafts, new from the web this week, claimed) and
+  *Claims to review* (new and contacted, the newest five), drawn like Strapi's *Project statistics*; each number links to
+  the matching tab and filter.
 - **Admin API** (admin session with `plugin::matfinder.read`): `GET /matfinder/summary`, `/gyms`, `/from-web`,
   `/claims`; with `claims.review`: `POST /matfinder/claims/:documentId/contacted|accept|reject|remove-owner`.
 - **Content API** (signed-in app users): `POST /api/matfinder/claims`, `GET /api/matfinder/claims/mine?school=`,

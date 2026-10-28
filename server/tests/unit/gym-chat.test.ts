@@ -128,6 +128,22 @@ describe('the conversation’s limits', () => {
     expect(checkConversation(Array.from({ length: 12 }, () => user('Hi')))).toBeNull();
   });
 
+  it('checks the earlier turns too, since the whole conversation is billed each turn', () => {
+    const assistant = (content: unknown) => ({ id: Math.random().toString(), role: 'assistant', content });
+    const reasoning = (content: unknown) => ({ id: Math.random().toString(), role: 'reasoning', content });
+    // A real exchange: question, thinking, answer, next question.
+    const real = [user('Kids classes?'), reasoning('Look at the schedule.'), assistant('Yes, Mon and Wed at 4:30 pm.'), user('Price?')];
+    expect(checkConversation(real)).toBeNull();
+    // An earlier question over 500 characters, even when the newest one is short.
+    expect(checkConversation([user('x'.repeat(501)), assistant('Ok.'), user('Hi')])).toBe('question_too_long');
+    // An earlier answer, or its thinking, longer than the model could have written.
+    expect(checkConversation([user('Hi'), assistant('x'.repeat(20_001)), user('Hi')])).toBe('chat_too_long');
+    expect(checkConversation([user('Hi'), reasoning([{ type: 'thinking', text: 'x'.repeat(20_001) }]), user('Hi')])).toBe('chat_too_long');
+    expect(checkConversation([user('Hi'), assistant('x'.repeat(19_000)), user('Hi')])).toBeNull();
+    // More earlier turns than an answer and its thinking per question.
+    expect(checkConversation([user('Hi'), ...Array.from({ length: 5 }, () => assistant('Ok.')), user('Hi')])).toBe('chat_too_long');
+  });
+
   it('counts questions per user per day', () => {
     let now = new Date('2026-10-21T10:00:00Z');
     const counter = new DailyCounter(2, () => now);

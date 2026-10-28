@@ -1,12 +1,34 @@
 import { Badge, Box, Flex, Typography } from '@strapi/design-system';
+import { Clock, Phone } from '@strapi/icons';
 import { Widget, useFetchClient } from '@strapi/strapi/admin';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { styled } from 'styled-components';
 import { ROLE_LABELS, STATUS, age, type Claim } from '../claims';
 import { startPolling } from '../poll';
+import { pagePath } from '../tabs';
+import { StatGrid } from './StatGrid';
 
 type Summary = {
   claims: { pending: number; contacted: number; claimed: number; newest: Pick<Claim, 'schoolName' | 'name' | 'role' | 'status' | 'createdAt'>[] };
 };
+
+// One newest claim: a link to the Claims tab, divided like the rows of Strapi's "Last edited entries" widget.
+const Row = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spaces[2]};
+  padding: ${({ theme }) => `${theme.spaces[2]} ${theme.spaces[1]}`};
+  text-decoration: none;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.neutral150};
+
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: ${({ theme }) => theme.colors.neutral100};
+  }
+`;
 
 /** Homepage widget: claims waiting for review (new and contacted) and the newest few. */
 export default function ClaimsWidget() {
@@ -31,37 +53,27 @@ export default function ClaimsWidget() {
   if (!data) return <Widget.Loading />;
   if (!data.pending && !data.contacted) return <Widget.NoData>No claims waiting for review</Widget.NoData>;
   return (
-    <Flex direction="column" alignItems="stretch" gap={3} height="100%">
-      <Flex gap={4}>
-        <Typography variant="alpha" tag="p">
-          {data.pending}
-        </Typography>
-        <Typography variant="pi" textColor="neutral600">
-          new
-        </Typography>
-        <Typography variant="alpha" tag="p">
-          {data.contacted}
-        </Typography>
-        <Typography variant="pi" textColor="neutral600">
-          contacted
-        </Typography>
-      </Flex>
-      <Box style={{ overflowY: 'auto', flex: 1 }}>
-        <Flex direction="column" alignItems="stretch" gap={2}>
-          {data.newest.map((c, i) => (
-            <Flex key={i} justifyContent="space-between" gap={2}>
-              <Box style={{ minWidth: 0 }}>
-                <Typography fontWeight="semiBold" ellipsis>
-                  {c.schoolName}
-                </Typography>
-                <Typography variant="pi" textColor="neutral600" ellipsis>
-                  {c.name} · {ROLE_LABELS[c.role]} · {age(c.createdAt)}
-                </Typography>
-              </Box>
-              <Badge variant={STATUS[c.status].variant}>{STATUS[c.status].label}</Badge>
-            </Flex>
-          ))}
-        </Flex>
+    <Flex direction="column" alignItems="stretch" gap={4}>
+      <StatGrid
+        stats={[
+          { label: 'New', value: data.pending, icon: <Clock />, tone: 'warning', to: pagePath('claims', { status: 'pending' }) },
+          { label: 'Contacted', value: data.contacted, icon: <Phone />, tone: 'secondary', to: pagePath('claims', { status: 'contacted' }) },
+        ]}
+      />
+      <Box>
+        {data.newest.map((c, i) => (
+          <Row key={i} to={pagePath('claims')}>
+            <Box flex={1} minWidth={0}>
+              <Typography fontWeight="semiBold" textColor="neutral800" ellipsis>
+                {c.schoolName}
+              </Typography>
+              <Typography variant="pi" textColor="neutral600" ellipsis>
+                {c.name} · {ROLE_LABELS[c.role]} · {age(c.createdAt)}
+              </Typography>
+            </Box>
+            <Badge variant={STATUS[c.status].variant}>{STATUS[c.status].label}</Badge>
+          </Row>
+        ))}
       </Box>
     </Flex>
   );

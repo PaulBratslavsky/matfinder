@@ -1,8 +1,12 @@
 /** The gym chat's limits (plan 09 → D6 and *The gym chat*). */
 export const GYM_CHAT_LIMITS = {
-  /** Questions in one chat: the whole conversation is sent each turn, so this also caps its size. */
+  /** Questions in one chat. The whole conversation is sent (and billed) each turn; with `questionChars` and
+   * `answerChars` this bounds its size at what a real chat could reach. */
   questionsPerChat: 12,
   questionChars: 500,
+  /** The longest an earlier answer or its thinking can be as the browser sends it back: `maxTokens` at about
+   * 4 characters per token, with room for JSON. A longer turn wasn't written by the model. */
+  answerChars: 20_000,
   /** Per signed-in user per day (UTC), counted in memory by this Strapi process. */
   questionsPerDay: 40,
   /** For the whole answer, from the first chunk. */
@@ -45,12 +49,22 @@ export function onlyConversation<T extends AnyMessage>(messages: T[]): T[] {
 
 export type ConversationProblem = 'no_question' | 'question_too_long' | 'chat_too_long';
 
-/** What's wrong with a conversation before it reaches the model, or null. Reads the user messages only. */
+/** A message's size as sent, whatever its parts are (text, thinking…), so nothing in it escapes the limits. */
+const messageSize = (message: AnyMessage) => JSON.stringify(message.content ?? message.parts ?? '')?.length ?? 0;
+
+/**
+ * What's wrong with a conversation before it reaches the model, or null. The browser sends the whole conversation
+ * each turn and all of it is billed, so earlier turns are checked too: every question, and every earlier answer and
+ * its thinking, which can't be longer than the model could have written, nor more than two per question.
+ */
 export function checkConversation(messages: AnyMessage[]): ConversationProblem | null {
   const questions = messages.filter((m) => m.role === 'user').map(messageText);
   if (questions.length === 0) return 'no_question';
   if (questions.length > GYM_CHAT_LIMITS.questionsPerChat) return 'chat_too_long';
-  if (questions[questions.length - 1].length > GYM_CHAT_LIMITS.questionChars) return 'question_too_long';
+  if (questions.some((q) => q.length > GYM_CHAT_LIMITS.questionChars)) return 'question_too_long';
+  const replies = messages.filter((m) => m.role !== 'user');
+  if (replies.length > 2 * questions.length) return 'chat_too_long';
+  if (replies.some((m) => messageSize(m) > GYM_CHAT_LIMITS.answerChars)) return 'chat_too_long';
   return null;
 }
 
