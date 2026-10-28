@@ -21,6 +21,7 @@ const TOOLS = [
   'list_pending_drafts',
   'find_possible_duplicates',
   'add_gym_from_web',
+  'upsert_knowledge',
 ];
 
 const get = (path: string, cookie?: string) => fetch(`${API}${path}`, { headers: cookie ? { cookie } : {} });
@@ -118,7 +119,7 @@ describe('MCP (curator tools)', () => {
     token = (await res.json()).data.accessKey;
   });
 
-  it('tools/list with the curator token shows exactly the 10 MatFinder tools', async (ctx) => {
+  it('tools/list with the curator token shows exactly the 11 MatFinder tools', async (ctx) => {
     if (!token) return ctx.skip();
     const { body } = await mcp(token, 'tools/list');
     expect(body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([...TOOLS].sort());
@@ -377,6 +378,120 @@ describe('gym claims', () => {
     expect((await act(jwt, c.documentId, 'remove-owner')).status).toBe(422);
     expect((await act(jwt, c.documentId, 'remove-owner', 'Owner sold the gym.')).status).toBe(200);
     expect(await claimed()).toBe(false);
+  });
+});
+
+describe('gym chat (scripted model)', () => {
+  // The test server answers from a script (MATFINDER_AI_SCRIPTED): the answer repeats what the model would have read.
+  const SLUG = 'sample-summerlin-bjj-demo';
+  const jwt = () => inject('adminJwt');
+  const runInput = (questions: string[]) => ({
+    threadId: `t-${randomBytes(3).toString('hex')}`,
+    runId: `r-${randomBytes(3).toString('hex')}`,
+    state: {},
+    tools: [],
+    context: [],
+    forwardedProps: {},
+    messages: questions.map((content, i) => ({ id: `u${i}`, role: 'user', content })),
+  });
+  const ask = (cookie: string | undefined, questions: string[], slug = SLUG) =>
+    fetch(`${API}/api/matfinder/schools/${slug}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(runInput(questions)),
+    });
+  /** The stream's events and the answer text. */
+  const read = async (res: Response) => {
+    const events = (await res.text())
+      .split('\n\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line.replace(/^data: /, '')));
+    return { events, answer: events.filter((e) => e.type === 'TEXT_MESSAGE_CONTENT').map((e) => e.delta).join('') };
+  };
+  let user: string;
+  beforeAll(async () => {
+    user = await signUp();
+  });
+
+  it('tells a signed-in user it is ready, and refuses someone signed out', async () => {
+    expect(await (await get('/api/matfinder/chat/status', user)).json()).toEqual({ ready: true });
+    expect([401, 403]).toContain((await get('/api/matfinder/chat/status')).status);
+    expect([401, 403]).toContain((await ask(undefined, ['Hi'])).status);
+  });
+
+  it("streams an answer read from the gym's page, its published knowledge and the general entries only", async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    // A draft entry for this gym: never published, so the chat must not read it.
+    const draft = await fetch(`${API}/content-manager/collection-types/plugin::matfinder.knowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ question: 'Secret draft question?', answer: 'Draft answer.', category: 'other', source: 'admin' }),
+    });
+    expect(draft.status).toBe(201);
+
+    const res = await ask(user, ['Where do I park?']);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const { events, answer } = await read(res);
+    expect(events.filter((e) => e.type === 'TEXT_MESSAGE_CONTENT').length).toBeGreaterThan(1); // streamed in pieces
+    expect(events.at(-1).type).toBe('RUN_FINISHED');
+    expect(answer).toContain('You asked: Where do I park?');
+    expect(answer).toContain('Name: Sample Summerlin BJJ (Demo)');
+    expect(answer).toMatch(/- (Monday|Wednesday|Saturday) \d{2}:\d{2}/); // the schedule, in words
+    expect(answer).toContain('Free parking in the lot behind the building'); // this gym's entry
+    expect(answer).toContain('What should I bring to a first BJJ class?'); // a general entry
+    expect(answer).not.toContain('two-car garage'); // another gym's entry
+    expect(answer).not.toContain('Secret draft question?');
+    expect(answer).toContain('Now at the gym:');
+  });
+
+  it('answers a refusal as a RUN_ERROR in words: unknown gym, 13th question, long question', async () => {
+    const error = async (res: Response) => (await read(res)).events[0];
+    expect(await error(await ask(user, ['Hi'], 'no-such-gym-demo'))).toMatchObject({ type: 'RUN_ERROR', code: 'not_found' });
+    expect(await error(await ask(user, Array.from({ length: 13 }, () => 'Hi')))).toMatchObject({ type: 'RUN_ERROR', code: 'chat_too_long' });
+    expect(await error(await ask(user, ['x'.repeat(501)]))).toMatchObject({
+      type: 'RUN_ERROR',
+      code: 'question_too_long',
+      message: 'That question is too long. Keep it under 500 characters.',
+    });
+  });
+
+  it('refuses a body that is not a chat request with a 400', async () => {
+    const res = await fetch(`${API}/api/matfinder/schools/${SLUG}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: user },
+      body: JSON.stringify({ question: 'Where do I park?' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('an agent adds knowledge with upsert_knowledge, live right away, and the chat reads it', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ name: `it-knowledge-${randomBytes(3).toString('hex')}`, lifespan: null, adminPermissions: [{ action: 'plugin::matfinder.mcp.upsert-knowledge' }] }),
+    });
+    expect(tokenRes.status).toBe(201);
+    const token = (await tokenRes.json()).data.accessKey;
+    const args = {
+      schoolSlug: SLUG,
+      question: 'Is there a mat fee for visitors?',
+      answer: 'Visitors pay the drop-in fee and sign a waiver at the desk.',
+      category: 'visiting',
+      sourceUrls: ['https://example.com/summerlin/visitors'],
+    };
+    const first = await callTool(token, 'upsert_knowledge', args);
+    expect(first.isError).toBe(false);
+    expect(first.data).toMatchObject({ created: true, schoolSlug: SLUG, status: 'published' });
+    const again = await callTool(token, 'upsert_knowledge', { ...args, question: 'IS THERE A MAT FEE FOR VISITORS?', answer: 'Visitors pay the drop-in fee.' });
+    expect(again.data).toMatchObject({ id: first.data.id, created: false, status: 'published' });
+    const unknown = await callTool(token, 'upsert_knowledge', { ...args, schoolSlug: 'no-such-gym-demo' });
+    expect(unknown).toMatchObject({ isError: true, error: { error: 'NOT_FOUND' } });
+
+    const { answer } = await read(await ask(user, ['Do visitors pay a mat fee?']));
+    expect(answer).toContain('Visitors pay the drop-in fee.');
+    expect(answer).not.toContain('sign a waiver at the desk');
   });
 });
 

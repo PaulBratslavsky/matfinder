@@ -10,11 +10,12 @@ import { upsertInstructor } from './tools/upsert-instructor';
 import { upsertSchool } from './tools/upsert-school';
 import { addGymFromWeb } from './tools/add-gym-from-web';
 import { findPossibleDuplicates } from './tools/find-possible-duplicates';
+import { upsertKnowledge } from './tools/upsert-knowledge';
 import { findNewGymsArgs, findNewGymsText } from './prompts/find-new-gyms';
 import type { ToolDef } from './types';
 
 /**
- * The 10 MatFinder tools. Writes go live: each write tool publishes what it changed (services/publishing.ts; off with
+ * The 11 MatFinder tools. Writes go live: each write tool publishes what it changed (services/publishing.ts; off with
  * MATFINDER_AUTO_PUBLISH=false). No tool unpublishes, deletes or uploads media.
  */
 export const TOOLS: ToolDef[] = [
@@ -28,6 +29,7 @@ export const TOOLS: ToolDef[] = [
   listPendingDrafts,
   findPossibleDuplicates,
   addGymFromWeb,
+  upsertKnowledge,
 ];
 
 /** Admin action uids allow only lowercase letters, dots and hyphens: upsert_school → mcp.upsert-school. */

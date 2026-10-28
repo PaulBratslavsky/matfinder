@@ -19,6 +19,9 @@ export const GRANTS: Record<'public' | 'authenticated', string[]> = {
     // The MatFinder plugin's claim routes (server/src/plugins/matfinder): claim a gym, see your claim's status.
     'plugin::matfinder.claim.create',
     'plugin::matfinder.claim.mine',
+    // The gym chat ("Ask about this gym"): whether it's set up, and asking a question.
+    'plugin::matfinder.gym-chat.status',
+    'plugin::matfinder.gym-chat.ask',
   ],
 };
 

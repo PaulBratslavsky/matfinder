@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "matfinder_knowledge",
+  "info": {
+    "singularName": "knowledge",
+    "pluralName": "knowledge-entries",
+    "displayName": "Gym knowledge",
+    "description": "What MatFinder knows about a gym beyond its page (or, with no gym, about every gym). The gym chat answers from published entries only."
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {
+    "content-manager": { "visible": true },
+    "content-type-builder": { "visible": false }
+  },
+  "attributes": {
+    "question": { "type": "string", "required": true, "maxLength": 200 },
+    "answer": { "type": "text", "required": true, "maxLength": 2000 },
+    "category": {
+      "type": "enumeration",
+      "enum": ["visiting", "schedule", "pricing", "kids", "gear", "facilities", "policies", "competition", "other"],
+      "default": "other",
+      "required": true
+    },
+    "school": { "type": "relation", "relation": "manyToOne", "target": "api::school.school" },
+    "source": { "type": "enumeration", "enum": ["admin", "owner", "agent", "question"], "default": "admin", "required": true },
+    "sourceUrls": { "type": "json", "private": true }
+  }
+}

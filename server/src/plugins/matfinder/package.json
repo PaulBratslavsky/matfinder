@@ -33,6 +33,10 @@
     "displayName": "MatFinder",
     "description": "Gyms, claims and the MCP curation tools."
   },
+  "dependencies": {
+    "@tanstack/ai": "0.71.0",
+    "@tanstack/ai-anthropic": "0.23.0"
+  },
   "peerDependencies": {
     "@strapi/design-system": "^2.0.0",
     "@strapi/icons": "^2.0.0",
