@@ -12,8 +12,9 @@ import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
 import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewares/normalize-contact';
 import { slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
-import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type Weekday } from '../../../lib/time';
+import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
 import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
+import { boundingBox, coordsOf, haversineMiles, roundMiles, type Coords } from '../../../lib/radius';
 import { sameJson } from '../../../lib/equal';
 
 // The derived fields (the spec's *Time rules*) and the directory item live in lib/directory.ts, free of Strapi.
@@ -27,6 +28,17 @@ const INSTRUCTOR = 'api::instructor.instructor';
 
 const MEDIA_FIELDS = ['url', 'alternativeText', 'width', 'height', 'formats'];
 const MAX_SESSIONS = 100;
+/** The nearby endpoint returns at most this many gyms, nearest first (`truncated` says when there were more). */
+const MAX_NEARBY = 300;
+
+/** What a directory item is built from, besides the school's own fields (lib/directory.ts `toDirectoryItem`). */
+const DIRECTORY_FIELDS_QUERY = ['slug', 'name', 'location', 'neighborhood', 'postalCode'];
+const DIRECTORY_POPULATE = {
+  logo: { fields: ['url', 'formats'] },
+  affiliation: { fields: ['name'] },
+  pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency'] },
+  schedule: { fields: ['day', 'startTime', 'endTime', 'classType', 'style'] },
+};
 
 // ---- Shaping ----
 
@@ -87,6 +99,25 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       rows.push(...page);
       if (page.length < 200) return rows;
     }
+  }
+
+  /**
+   * The closest city (by its center) that has at least one published gym, for an empty nearby result (plan 08, P2).
+   * Cities are few, so they're sorted by distance in memory and counted one by one until one has gyms.
+   */
+  async function nearestCityWithGyms(from: Coords) {
+    const cities: any[] = await docs(CITY).findMany({ fields: ['slug', 'name', 'state', 'center'], limit: 1000 });
+    const byDistance = cities
+      .map((c) => ({ c, at: coordsOf(c.center) }))
+      .filter((x): x is { c: any; at: Coords } => !!x.at)
+      .map((x) => ({ ...x, miles: haversineMiles(from, x.at) }))
+      .sort((a, b) => a.miles - b.miles);
+    for (const { c, at, miles } of byDistance) {
+      if (await docs(SCHOOL).count({ filters: { city: { slug: c.slug } }, status: 'published' })) {
+        return { citySlug: c.slug, name: c.name, state: c.state ?? null, center: at, distanceMiles: roundMiles(miles) };
+      }
+    }
+    return null;
   }
 
   async function bySlugOrThrow(uid: string, slug: string, what: string) {
@@ -217,13 +248,8 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       const claimed = await claimedSchoolIds();
       const schools = await findAllPublished({
         filters: { city: { slug: citySlug } },
-        fields: ['slug', 'name', 'location', 'neighborhood', 'postalCode'],
-        populate: {
-          logo: { fields: ['url', 'formats'] },
-          affiliation: { fields: ['name'] },
-          pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency'] },
-          schedule: { fields: ['day', 'startTime', 'endTime', 'classType', 'style'] },
-        },
+        fields: DIRECTORY_FIELDS_QUERY,
+        populate: DIRECTORY_POPULATE,
         sort: 'name:asc',
       });
       return {
@@ -240,6 +266,55 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         // Each item comes from an explicit field list (lib/directory.ts). A school without coordinates can't be
         // placed on the map, so it's left out.
         schools: schools.filter((s) => hasCoords(s.location)).map((s) => toDirectoryItem(s, now, claimed.has(s.documentId))),
+      };
+    },
+
+    /**
+     * Published gyms within `radius` miles of `center`, from any city, nearest first (plan 08, M14). Each gym's
+     * today-fields use its own city's time, and `cities` carries those cities' local dates. When nothing is in
+     * range, `nearest` names the closest city that has gyms.
+     */
+    async getNearby(center: Coords, radius: number) {
+      const box = boundingBox(center, radius);
+      const claimed = await claimedSchoolIds();
+      const rows = await findAllPublished({
+        filters: { latitude: { $between: [box.minLat, box.maxLat] }, longitude: { $between: [box.minLng, box.maxLng] } },
+        fields: DIRECTORY_FIELDS_QUERY,
+        populate: { ...DIRECTORY_POPULATE, city: { fields: ['slug', 'name', 'state', 'timezone'] } },
+      });
+      // The box is a little larger than the circle; the exact distance decides. A gym needs its city's time zone
+      // for its today-fields, so one without a city is left out (the school service requires a city on every write).
+      const inRange: { s: any; miles: number }[] = [];
+      for (const s of rows) {
+        const at = coordsOf(s.location);
+        if (!at || !s.city?.timezone) continue;
+        const miles = haversineMiles(center, at);
+        if (miles <= radius) inRange.push({ s, miles });
+      }
+      inRange.sort((a, b) => a.miles - b.miles);
+      const shown = inRange.slice(0, MAX_NEARBY);
+
+      const nowByCity = new Map<string, CityNow>();
+      const cities: Record<string, { name: string; state: string | null; timezone: string; localDate: string; weekday: Weekday }> = {};
+      for (const { s } of shown) {
+        if (nowByCity.has(s.city.slug)) continue;
+        const now = cityNow(s.city.timezone);
+        nowByCity.set(s.city.slug, now);
+        cities[s.city.slug] = { name: s.city.name, state: s.city.state ?? null, timezone: s.city.timezone, localDate: now.localDate, weekday: now.weekday };
+      }
+
+      return {
+        center,
+        radius,
+        generatedAt: new Date().toISOString(),
+        truncated: inRange.length > shown.length,
+        cities,
+        schools: shown.map(({ s, miles }) => ({
+          ...toDirectoryItem(s, nowByCity.get(s.city.slug)!, claimed.has(s.documentId)),
+          citySlug: s.city.slug,
+          distanceMiles: roundMiles(miles),
+        })),
+        nearest: shown.length ? null : await nearestCityWithGyms(center),
       };
     },
 

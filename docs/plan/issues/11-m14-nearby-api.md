@@ -11,8 +11,8 @@ each with "today" computed in its own city's time.
 - {{#m15}} (search suggestions) and {{#m16}} (the app) both build on this query.
 
 ## Implementation spec
-- [ ] `api::school.school` gains `latitude` and `longitude` (`decimal`). Hide them from the Content Manager edit view
-      (`config.editable: false` in the CM layout, or the equivalent for 5.58: verify).
+- [ ] `api::school.school` gains `latitude` and `longitude` (`float`: Strapi 5.58's `decimal` is a fixed `decimal(10, 2)`,
+      too coarse for coordinates). Hide them from the Content Manager with `config.attributes.<name>.hidden` in the schema.
 - [ ] A Document Service middleware, next to the existing ones in `src/document-middlewares/index.ts`
       (`registerDocumentMiddlewares`), copies `location.latitude` / `location.longitude` into the columns on `create`, `update` and
       `publish` for `api::school.school`. It must also run for the MCP tools' draft writes (they go through the
@@ -39,7 +39,7 @@ Response shape, limits and caching: plan 08 → *Endpoints* → `GET /api/school
 
 ## Watch out for
 - **Don't change `GET /api/schools/directory?city=`.** The e2e suite and older links use it.
-- **Decimal columns** may come back as strings on Postgres. Convert in one place (`num()` in `lib/directory.ts`).
+- **Column type:** `float` (`double`), not `decimal`, which Strapi fixes at 2 decimal places.
 - **Draft vs published:** the columns must be right on both, because publishing copies the draft.
 - **Never start Strapi without the plugin build** (CLAUDE.md). Run the suites with `npm run test:integration:isolated`.
 
@@ -57,7 +57,7 @@ Search suggestions ({{#m15}}); any app change ({{#m16}}); PostGIS.
 ## For the implementing agent
 - **Deviation protocol:** the plan's names, limits and shapes are the user's decisions. If you want to change one,
   stop and ask.
-- **Verify, don't recall:** check Strapi 5.58's Document Service middleware and `decimal` behavior in the docs
+- **Verify, don't recall:** check Strapi 5.58's Document Service middleware and column types in the docs
   (`strapi-docs` MCP first, then https://docs.strapi.io) before relying on them.
 - **Workflow:** branch `m14-nearby-api`, one PR into `main` with `Closes {{#self}}`, merged by the user once every
   Done-when box passes.

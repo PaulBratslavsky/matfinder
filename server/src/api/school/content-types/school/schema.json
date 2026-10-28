@@ -9,6 +9,16 @@
   "options": {
     "draftAndPublish": true
   },
+  "config": {
+    "attributes": {
+      "latitude": {
+        "hidden": true
+      },
+      "longitude": {
+        "hidden": true
+      }
+    }
+  },
   "attributes": {
     "name": {
       "type": "string",
@@ -37,6 +47,12 @@
       "type": "customField",
       "customField": "global::map-box",
       "required": true
+    },
+    "latitude": {
+      "type": "float"
+    },
+    "longitude": {
+      "type": "float"
     },
     "neighborhood": {
       "type": "string"

@@ -1,5 +1,6 @@
 import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
+import { backfillSchoolCoordinates } from './lib/coordinates';
 import { backfillUserRoles, seedPermissions } from './lib/permissions';
 import { seedSampleData } from './seed/sample';
 
@@ -15,6 +16,8 @@ const UNIQUE_INDEXES = [
   `CREATE UNIQUE INDEX IF NOT EXISTS cities_slug_uq ON cities (slug)`,
   // Better Auth checks for an existing email and then inserts; the index closes the race between two sign-ups.
   `CREATE UNIQUE INDEX IF NOT EXISTS ba_user_email_uq ON ba_user (email)`,
+  // Not unique: the nearby query's bounding box (plan 08, M14) on the columns mirrored from `location`.
+  `CREATE INDEX IF NOT EXISTS schools_lat_lng_idx ON schools (latitude, longitude)`,
 ];
 
 export default {
@@ -32,6 +35,7 @@ export default {
     }
     await seedPermissions(strapi);
     await backfillUserRoles(strapi);
+    await backfillSchoolCoordinates(strapi);
     // Development only: never set SEED_SAMPLE_DATA on Strapi Cloud.
     if (process.env.SEED_SAMPLE_DATA === 'true') {
       try {

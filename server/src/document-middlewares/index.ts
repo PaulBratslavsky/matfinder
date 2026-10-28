@@ -3,6 +3,7 @@ import { cityValidate } from './city-validate';
 import { normalizeContact } from './normalize-contact';
 import { pricingValidate } from './pricing-validate';
 import { scheduleValidate } from './schedule-validate';
+import { schoolCoordinates } from './school-coordinates';
 import { slug } from './slug';
 import { userRole } from './user-role';
 
@@ -13,5 +14,6 @@ export function registerDocumentMiddlewares(strapi: Core.Strapi) {
   strapi.documents.use(scheduleValidate);
   strapi.documents.use(pricingValidate);
   strapi.documents.use(cityValidate);
+  strapi.documents.use(schoolCoordinates);
   strapi.documents.use(userRole(strapi));
 }
