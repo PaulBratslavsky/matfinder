@@ -7,7 +7,7 @@ MatFinder is a map-first directory of Brazilian Jiu-Jitsu schools (Las Vegas fir
 - **The work:** GitHub issues. Epic **#2**; milestones **#3 (M0) → #12 (M9)**. `docs/plan/issues/plan.json` maps each milestone to its issue, and `docs/plan/issues/*.md` are the drafts behind them.
 - **Stack reference for sibling apps:** "MatFinder Stack Blueprint" artifact, https://claude.ai/artifact/D4a5m63g2sSuLEocvg3Xjp
 
-## Status (2026-10-28)
+## Status (2026-10-27)
 Merged to `main`: the POC M0–M9 (#3–#12, PRs #17–#30), the plugin plan (#31), Strapi 5.58.0 (#32), M10 plugin + MCP move + admin page (#33), M11 gyms from the web (#34), M12 claims (#35), M13 agent writes go live (#36), an evening-only e2e fix (#37), **plan 08** (#38) and its **M14** nearby API (#42), the plugin admin redesign on Strapi's list-view patterns (#43), **plan 09** (#44, `docs/plan/09-ai-chat.md`), **M17** gym knowledge + gym chat API (#45) and **M18** "Ask about this gym" in the app (#46). **Production is live:** Strapi Cloud `demo-mat-finder-app` (https://whimsical-book-9f2752414b.strapiapp.com, Postgres) and Vercel `matfinder` (https://matfinder.vercel.app, root `mobile`, deploys from `main`), with the Las Vegas city and 20 real gyms added through `find_new_gyms`. The repo is public. The iOS app has run in the Simulator (Xcode 26.6, iOS 26.5). **The gym chat is off in production until `AI_API_KEY` is set on Strapi Cloud** (the app hides "Ask about this gym" while `chat/status` isn't ready); M17's real-key check and M18's streaming-through-Vercel check wait on that. **Next:** M15 search suggestions (#40) and M16 Explore by location (#41) from plan 08; M19–M20 from plan 09 (no issues yet). `SEED_SAMPLE_DATA=true` in `server/.env` loads the fictional Las Vegas data.
 
 ## How to work
