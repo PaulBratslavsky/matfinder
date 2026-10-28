@@ -10,9 +10,10 @@ const USER_UID = 'plugin::better-auth.user';
  * comes only from /api/auth/get-session). The two school actions exist once M4 adds their routes.
  */
 export const GRANTS: Record<'public' | 'authenticated', string[]> = {
-  public: ['api::school.school.directory', 'api::city.city.find'],
+  public: ['api::school.school.directory', 'api::school.school.nearby', 'api::city.city.find'],
   authenticated: [
     'api::school.school.directory',
+    'api::school.school.nearby',
     'api::city.city.find',
     'api::school.school.bySlug',
     // The MatFinder plugin's claim routes (server/src/plugins/matfinder): claim a gym, see your claim's status.
