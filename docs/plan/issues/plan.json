@@ -293,6 +293,66 @@
       ],
       "number": 41,
       "url": "https://github.com/PaulBratslavsky/matfinder/issues/41"
+    },
+    {
+      "key": "m17",
+      "title": "[MatFinder] M17 · Gym knowledge base and the gym chat API",
+      "body": "14-m17-gym-knowledge-chat-api.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:ai"
+      ],
+      "parent": null,
+      "blockedBy": []
+    },
+    {
+      "key": "m18",
+      "title": "[MatFinder] M18 · Ask about this gym in the app",
+      "body": "15-m18-ask-about-this-gym.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:app",
+        "area:ai"
+      ],
+      "parent": null,
+      "blockedBy": [
+        "m17"
+      ]
+    },
+    {
+      "key": "m19",
+      "title": "[MatFinder] M19 · The MatFinder assistant in the admin",
+      "body": "16-m19-matfinder-assistant.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:ai"
+      ],
+      "parent": null,
+      "blockedBy": [
+        "m17"
+      ]
+    },
+    {
+      "key": "m20",
+      "title": "[MatFinder] M20 · Unanswered questions and saved admin chats",
+      "body": "17-m20-questions-saved-chats.md",
+      "labels": [
+        "spec:matfinder",
+        "type:build-step",
+        "area:backend",
+        "area:app",
+        "area:ai"
+      ],
+      "parent": null,
+      "blockedBy": [
+        "m18",
+        "m19"
+      ]
     }
   ]
 }
