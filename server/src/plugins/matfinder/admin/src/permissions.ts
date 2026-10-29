@@ -3,4 +3,6 @@ export const PERMISSIONS = {
   read: [{ action: 'plugin::matfinder.read', subject: null }],
   /** useRBAC → allowedActions.canReview */
   review: [{ action: 'plugin::matfinder.claims.review', subject: null }],
+  /** useRBAC → allowedActions.canReview */
+  reviewReports: [{ action: 'plugin::matfinder.reports.review', subject: null }],
 };

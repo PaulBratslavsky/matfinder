@@ -13,18 +13,21 @@ export default {
       { method: 'POST', path: '/claims/:documentId/accept', handler: 'claims.accept', config: { policies: allow(ACTIONS.review) } },
       { method: 'POST', path: '/claims/:documentId/reject', handler: 'claims.reject', config: { policies: allow(ACTIONS.review) } },
       { method: 'POST', path: '/claims/:documentId/remove-owner', handler: 'claims.removeOwner', config: { policies: allow(ACTIONS.review) } },
+      { method: 'GET', path: '/reports', handler: 'reports.find', config: { policies: allow(ACTIONS.read) } },
+      { method: 'POST', path: '/reports/:documentId/resolve', handler: 'reports.resolve', config: { policies: allow(ACTIONS.reportsReview) } },
     ],
   },
   /**
    * Content API (the app), at /api/matfinder/...: signed-in users only. The Authenticated role's grants for
-   * plugin::matfinder.claim.create and .mine, and gym-chat.ask and .status, are seeded by the app
-   * (server/src/lib/permissions.ts).
+   * plugin::matfinder.claim.create and .mine, plugin::matfinder.report.create, and gym-chat.ask and .status, are
+   * seeded by the app (server/src/lib/permissions.ts).
    */
   'content-api': {
     type: 'content-api',
     routes: [
       { method: 'POST', path: '/claims', handler: 'claim.create' },
       { method: 'GET', path: '/claims/mine', handler: 'claim.mine' },
+      { method: 'POST', path: '/reports', handler: 'report.create' },
       // The gym chat (plan 09, M17): one question about one gym, streamed as server-sent events.
       { method: 'GET', path: '/chat/status', handler: 'gym-chat.status' },
       { method: 'POST', path: '/schools/:slug/chat', handler: 'gym-chat.ask' },

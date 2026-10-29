@@ -4,6 +4,7 @@ import { PLUGIN_ID } from './pluginId';
 export const TABS = [
   { id: 'gyms', label: 'Gyms' },
   { id: 'claims', label: 'Claims' },
+  { id: 'reports', label: 'Reports' },
   { id: 'from-web', label: 'From the web' },
 ] as const;
 

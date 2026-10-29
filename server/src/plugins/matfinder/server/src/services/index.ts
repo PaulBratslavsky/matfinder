@@ -4,5 +4,6 @@ import gymChat from './gym-chat';
 import gyms from './gyms';
 import knowledge from './knowledge';
 import publishing from './publishing';
+import reports from './reports';
 
-export default { claims, discovery, 'gym-chat': gymChat, gyms, knowledge, publishing };
+export default { claims, discovery, 'gym-chat': gymChat, gyms, knowledge, publishing, reports };

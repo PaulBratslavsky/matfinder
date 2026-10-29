@@ -53,6 +53,26 @@ async function callTool(token: string, name: string, args: Record<string, unknow
   return { isError: !!result.isError, data: result.structuredContent, error: result.isError ? JSON.parse(result.content[0].text) : null };
 }
 
+/** An admin with only plugin::matfinder.read (no claims.review or reports.review), through the admin registration flow. */
+async function readOnlyAdmin(superJwt: string): Promise<string> {
+  const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
+  const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
+  await fetch(`${API}/admin/roles/${role.id}/permissions`, {
+    method: 'PUT',
+    headers: auth,
+    body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
+  });
+  const user = (
+    await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
+  ).data;
+  const reg = await fetch(`${API}/admin/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
+  });
+  return (await reg.json()).data.token;
+}
+
 describe('public directory', () => {
   it('lists the published sample schools with exactly the public field set', async () => {
     const res = await get('/api/schools/directory?city=las-vegas');
@@ -474,26 +494,6 @@ describe('gym claims', () => {
     return dir.data.schools.find((s: { slug: string }) => s.slug === SLUG).claimed;
   };
 
-  /** An admin with only plugin::matfinder.read (no claims.review), through the admin registration flow. */
-  async function readOnlyAdmin(superJwt: string): Promise<string> {
-    const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
-    const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
-    await fetch(`${API}/admin/roles/${role.id}/permissions`, {
-      method: 'PUT',
-      headers: auth,
-      body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
-    });
-    const user = (
-      await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
-    ).data;
-    const reg = await fetch(`${API}/admin/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
-    });
-    return (await reg.json()).data.token;
-  }
-
   it('a signed-in owner claims a gym; bad and repeated claims are refused', async () => {
     expect((await claim(undefined, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199' })).status).toBeGreaterThanOrEqual(401);
     const owner = await signUp();
@@ -883,5 +883,64 @@ describe('account deletion (C15)', () => {
     const board = await boardOf('withdrawn');
     expect(board.find((x) => x.documentId === claimId)).toMatchObject({ name: 'Deleted account', email: 'deleted@matfinder.invalid', phone: '—', message: null, status: 'withdrawn' });
     expect(JSON.stringify(board)).not.toContain(email);
+  });
+
+  it("deletes the user's open reports and unlinks resolved ones", async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const email = `it-delrep-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Reporter', email, password });
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const marker = `delete-me-${randomBytes(4).toString('hex')}`;
+    expect((await post('/api/matfinder/reports', { schoolSlug: 'sample-summerlin-bjj-demo', kind: 'other', message: marker }, cookie)).status).toBe(201);
+    expect((await post('/api/auth/delete-user', { password }, cookie)).status).toBe(200);
+    const board = await (await fetch(`${API}/matfinder/reports`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(JSON.stringify(board)).not.toContain(marker);
+  });
+});
+
+describe('problem reports', () => {
+  const SLUG = 'sample-summerlin-bjj-demo';
+  const json = (method: string, body: unknown, cookie?: string, jwt?: string) => ({
+    method,
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}), ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const report = (cookie: string | undefined, body: Record<string, unknown>) => fetch(`${API}/api/matfinder/reports`, json('POST', body, cookie));
+
+  it('a signed-in user reports a problem; repeats, bad input and signed-out calls are refused', async () => {
+    expect((await report(undefined, { schoolSlug: SLUG, kind: 'schedule' })).status).toBeGreaterThanOrEqual(401);
+    const user = await signUp();
+    expect((await report(user, { schoolSlug: 'no-such-gym', kind: 'schedule' })).status).toBe(404);
+    expect((await report(user, { schoolSlug: SLUG, kind: 'nonsense' })).status).toBe(422);
+    const res = await report(user, { schoolSlug: SLUG, kind: 'schedule', message: 'Monday open mat moved to 8pm.' });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ status: 'open' });
+    const again = await report(user, { schoolSlug: SLUG, kind: 'price' });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error.name).toBe('REPORT_OPEN');
+  });
+
+  it('an admin sees the report without the reporter id and resolves it once; a read-only admin gets 403', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const board = await (await fetch(`${API}/matfinder/reports?status=open`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const r = board.items.find((x: { schoolSlug: string }) => x.schoolSlug === SLUG);
+    expect(r).toMatchObject({ kind: 'schedule', message: 'Monday open mat moved to 8pm.', status: 'open' });
+    expect(r).not.toHaveProperty('userId');
+    const summary = await (await fetch(`${API}/matfinder/summary`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(summary.reports.open).toBeGreaterThanOrEqual(1);
+    const resolve = (token: string) => fetch(`${API}/matfinder/reports/${r.documentId}/resolve`, json('POST', {}, undefined, token));
+    expect((await resolve(await readOnlyAdmin(jwt))).status).toBe(403);
+    expect((await resolve(jwt)).status).toBe(200);
+    expect((await resolve(jwt)).status).toBe(409);
+  });
+
+  it('two simultaneous reports on one gym make one open report', async () => {
+    const user = await signUp();
+    const slug = 'sample-henderson-grappling-demo';
+    const [a, b] = await Promise.all([report(user, { schoolSlug: slug, kind: 'closed' }), report(user, { schoolSlug: slug, kind: 'closed' })]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
   });
 });

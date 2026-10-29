@@ -22,6 +22,8 @@ export const GRANTS: Record<'public' | 'authenticated', string[]> = {
     // The gym chat ("Ask about this gym"): whether it's set up, and asking a question.
     'plugin::matfinder.gym-chat.status',
     'plugin::matfinder.gym-chat.ask',
+    // Report a problem with a gym (MatFinder plugin).
+    'plugin::matfinder.report.create',
   ],
 };
 
