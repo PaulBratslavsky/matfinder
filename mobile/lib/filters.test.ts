@@ -29,8 +29,8 @@ const school = (o: Partial<DirectorySchool>): DirectorySchool => ({
 });
 
 const schools = [
-  school({ slug: 'jj', name: 'Jiu-Jítsu Academy', neighborhood: 'Summerlin', postalCode: '89135', styles: ['gi'], visitorsWelcome: true, todaySessions: [session('19:00', '20:30')] }),
-  school({ slug: 'hg', name: 'Henderson Grappling', neighborhood: 'Henderson', postalCode: '89014', styles: ['nogi'], visitorsWelcome: true, todaySessions: [session('06:00', '07:00')] }),
+  school({ slug: 'jj', name: 'Jiu-Jítsu Academy', neighborhood: 'Summerlin', postalCode: '89135', styles: ['gi'], programs: ['open_mat'], visitorsWelcome: true, todaySessions: [session('19:00', '20:30')] }),
+  school({ slug: 'hg', name: 'Henderson Grappling', neighborhood: 'Henderson', postalCode: '89014', styles: ['nogi'], programs: ['open_mat'], visitorsWelcome: true, todaySessions: [session('06:00', '07:00')] }),
   school({ slug: 'gv', name: 'Green Valley BJJ', neighborhood: 'Henderson', postalCode: '89074', affiliation: 'Team Alpha', styles: ['gi', 'nogi'], todaySessions: [session('18:00', '21:00')] }),
   school({ slug: 'nl', name: 'North LV Academy', neighborhood: 'North Las Vegas', styles: ['gi'], visitorsWelcome: true }),
 ];
@@ -58,23 +58,29 @@ describe('applyFilters', () => {
     expect(slugs(applyFilters(schools, { ...NO_FILTERS, visitors: true }, noon))).toEqual(['jj', 'hg', 'nl']);
     expect(slugs(applyFilters(schools, { ...NO_FILTERS, style: 'gi' }, noon))).toEqual(['jj', 'gv', 'nl']);
     expect(slugs(applyFilters(schools, { ...NO_FILTERS, style: 'nogi' }, noon))).toEqual(['hg', 'gv']);
+    expect(slugs(applyFilters(schools, { ...NO_FILTERS, openMat: true }, noon))).toEqual(['jj', 'hg']);
   });
 
   it('combines filters with AND', () => {
-    expect(slugs(applyFilters(schools, { q: 'henderson', today: true, visitors: false, style: null }, noon))).toEqual(['gv']);
-    expect(slugs(applyFilters(schools, { q: '', today: true, visitors: true, style: 'gi' }, noon))).toEqual(['jj']);
-    expect(slugs(applyFilters(schools, { q: 'henderson', today: true, visitors: true, style: null }, noon))).toEqual([]);
+    expect(slugs(applyFilters(schools, { q: 'henderson', today: true, visitors: false, openMat: false, style: null }, noon))).toEqual(['gv']);
+    expect(slugs(applyFilters(schools, { q: '', today: true, visitors: true, openMat: false, style: 'gi' }, noon))).toEqual(['jj']);
+    expect(slugs(applyFilters(schools, { q: 'henderson', today: true, visitors: true, openMat: false, style: null }, noon))).toEqual([]);
   });
 });
 
 describe('URL params', () => {
   it('round-trip, dropping unset filters', () => {
-    const f = { q: 'henderson', today: true, visitors: false, style: 'nogi' as const };
+    const f = { q: 'henderson', today: true, visitors: false, openMat: false, style: 'nogi' as const };
     expect(filtersToParams(f)).toEqual({ q: 'henderson', today: '1', visitors: undefined, style: 'nogi' });
     expect(parseFilters({ q: 'henderson', today: '1', style: 'nogi' })).toEqual(f);
   });
 
   it('ignores invalid values', () => {
-    expect(parseFilters({ today: 'yes', style: 'judo', visitors: ['1', '0'] })).toEqual({ q: '', today: false, visitors: true, style: null });
+    expect(parseFilters({ today: 'yes', style: 'judo', visitors: ['1', '0'] })).toEqual({ q: '', today: false, visitors: true, openMat: false, style: null });
+  });
+
+  it('the Open mat filter', () => {
+    expect(parseFilters({ openmat: '1' })).toEqual({ ...NO_FILTERS, openMat: true });
+    expect(filtersToParams({ ...NO_FILTERS, openMat: true }).openmat).toBe('1');
   });
 });

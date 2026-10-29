@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { API_URL } from '../playwright.config';
 
-type DirectorySchool = { slug: string; name: string; visitorsWelcome: boolean | null; todaySessions: { start: string; end: string }[] };
+type DirectorySchool = { slug: string; name: string; visitorsWelcome: boolean | null; todaySessions: { start: string; end: string }[]; programs: string[] };
 
 const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 /** Minutes since midnight in Las Vegas, computed independently of the app. */
@@ -27,6 +27,13 @@ test('explore → filters → preview → View gym → sign up → full gym page
   await expect(page.getByText(new RegExp(`^\\d+ of ${directory.schools.length} training today$`))).toBeVisible();
   await expect(page.getByText(`Showing ${directory.schools.length} of ${directory.schools.length}`, { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Sample .*\(Demo\)$/ })).toHaveCount(directory.schools.length);
+
+  await page.locator('[aria-label="Open mat"]').click();
+  await expect(page).toHaveURL(/openmat=1/);
+  const openMat = directory.schools.filter((s) => s.programs?.includes('open_mat'));
+  await expect.poll(() => listNames(page)).toEqual(openMat.map((s) => s.name).sort());
+  await page.locator('[aria-label="Open mat"]').click();
+  await expect(page).not.toHaveURL(/openmat=1/);
 
   // "Training today" + "Visitors welcome", checked against the API and Las Vegas time.
   await page.locator('[aria-label="Training today"]').click();

@@ -37,7 +37,7 @@ const clock = (now: CityNow) => `${dayShort(now.weekday)} ${formatTime(hhmm(now.
 export default function ExploreScreen() {
   const styles = useStyles();
   const { colors, layout } = useTheme();
-  const params = useLocalSearchParams<{ q?: string; today?: string; visitors?: string; style?: string; school?: string; sort?: string }>();
+  const params = useLocalSearchParams<{ q?: string; today?: string; visitors?: string; style?: string; openmat?: string; school?: string; sort?: string }>();
   const filters = useMemo(() => parseFilters(params), [params]);
   const sort: SortKey = params.sort === 'distance' ? 'distance' : 'time';
   const selectedSlug = params.school || null;
@@ -96,7 +96,7 @@ export default function ExploreScreen() {
   // Where the map looks: the selected gym; else the device (near the city, no filters); else every listed gym.
   // The map moves only when `key` changes. The fit key comes from the filters, not the list: with "Training today"
   // on, the list shrinks as classes end, and the map must not re-fit (and undo the user's pan) each time.
-  const filtersKey = `${filters.q.trim()}|${filters.today}|${filters.visitors}|${filters.style ?? ''}`;
+  const filtersKey = `${filters.q.trim()}|${filters.today}|${filters.visitors}|${filters.style ?? ''}|${filters.openMat}`;
   const camera: MapCamera | undefined = useMemo(() => {
     if (!data || !location) return undefined;
     if (selected) return { key: `gym:${selected.slug}`, center: { longitude: selected.longitude, latitude: selected.latitude }, zoom: 14 };

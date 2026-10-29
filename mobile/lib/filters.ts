@@ -1,10 +1,10 @@
 import type { DirectorySchool } from './api/schools';
 import { isTrainingToday, type CityNow } from './time';
 
-/** The Explore filters; they live in the URL (`?q=&today=1&visitors=1&style=gi|nogi`) and combine with AND. */
-export type Filters = { q: string; today: boolean; visitors: boolean; style: 'gi' | 'nogi' | null };
+/** The Explore filters; they live in the URL (`?q=&today=1&visitors=1&openmat=1&style=gi|nogi`) and combine with AND. */
+export type Filters = { q: string; today: boolean; visitors: boolean; openMat: boolean; style: 'gi' | 'nogi' | null };
 
-export const NO_FILTERS: Filters = { q: '', today: false, visitors: false, style: null };
+export const NO_FILTERS: Filters = { q: '', today: false, visitors: false, openMat: false, style: null };
 
 type Params = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -15,6 +15,7 @@ export function parseFilters(params: Params): Filters {
     q: first(params.q) ?? '',
     today: first(params.today) === '1',
     visitors: first(params.visitors) === '1',
+    openMat: first(params.openmat) === '1',
     style: style === 'gi' || style === 'nogi' ? style : null,
   };
 }
@@ -25,11 +26,12 @@ export function filtersToParams(f: Filters): Record<string, string | undefined> 
     q: f.q.trim() ? f.q : undefined,
     today: f.today ? '1' : undefined,
     visitors: f.visitors ? '1' : undefined,
+    openmat: f.openMat ? '1' : undefined,
     style: f.style ?? undefined,
   };
 }
 
-export const hasActiveFilters = (f: Filters) => !!f.q.trim() || f.today || f.visitors || !!f.style;
+export const hasActiveFilters = (f: Filters) => !!f.q.trim() || f.today || f.visitors || f.openMat || !!f.style;
 
 /** Lowercase without accents, so "Henderson" matches "henderson" and "Jiu-Jítsu" matches "jiu-jitsu". */
 export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -42,6 +44,7 @@ export function applyFilters(schools: DirectorySchool[], f: Filters, now: CityNo
       (!q || [s.name, s.neighborhood, s.postalCode, s.affiliation].some((v) => v && fold(v).includes(q))) &&
       (!f.today || isTrainingToday(s.todaySessions, now)) &&
       (!f.visitors || s.visitorsWelcome) &&
+      (!f.openMat || s.programs.includes('open_mat')) &&
       (!f.style || s.styles.includes(f.style)),
   );
 }
