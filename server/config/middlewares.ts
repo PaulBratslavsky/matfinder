@@ -1,5 +1,6 @@
 export default ({ env }) => [
   'strapi::logger',
+  'global::auth-ip-probe',
   'strapi::errors',
   {
     name: 'strapi::security',
