@@ -41,6 +41,13 @@ export const num = (v: unknown) => (v === null || v === undefined || v === '' ? 
 /** A school can only be placed on the map with coordinates. */
 export const hasCoords = (loc: any) => Number.isFinite(loc?.latitude) && Number.isFinite(loc?.longitude);
 
+/** The gym's notice while it applies: no end date, or an end date on or after the city-local date. */
+export function activeNotice(notice: string | null | undefined, until: string | null | undefined, localDate: string): string | null {
+  const text = notice?.trim();
+  if (!text) return null;
+  return !until || until >= localDate ? text : null;
+}
+
 /** The public directory fields, in order. Anything else on a school (schedule beyond today, instructors, contact…) stays out. */
 export const DIRECTORY_FIELDS = [
   'documentId',
@@ -59,6 +66,10 @@ export const DIRECTORY_FIELDS = [
   'currency',
   'todaySessions',
   'claimed',
+  'lastVerifiedAt',
+  'addedFromWeb',
+  'freeTrial',
+  'notice',
 ] as const;
 
 /**
@@ -85,5 +96,10 @@ export function toDirectoryItem(s: any, now: CityNow, claimed = false) {
     todaySessions: toTodaySessions(s.schedule, now),
     // An owner's claim was accepted (the MatFinder plugin's claims); who claimed it is never public.
     claimed,
+    // "Schedule verified" date (set only by a person, UX-1) and whether the agent added the gym from the web.
+    lastVerifiedAt: s.lastVerifiedAt ?? null,
+    addedFromWeb: s.origin === 'web-agent',
+    freeTrial: s.pricing?.freeTrial === true,
+    notice: activeNotice(s.notice, s.noticeUntil, now.localDate),
   };
 }

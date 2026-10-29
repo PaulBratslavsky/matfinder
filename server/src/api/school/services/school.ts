@@ -13,7 +13,7 @@ import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewa
 import { pickFreeSlug, slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
-import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
+import { activeNotice, hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
 import { boundingBox, coordsOf, haversineMiles, roundMiles, type Coords } from '../../../lib/radius';
 import { sameJson } from '../../../lib/equal';
 
@@ -32,11 +32,11 @@ const MAX_SESSIONS = 100;
 const MAX_NEARBY = 300;
 
 /** What a directory item is built from, besides the school's own fields (lib/directory.ts `toDirectoryItem`). */
-const DIRECTORY_FIELDS_QUERY = ['slug', 'name', 'location', 'neighborhood', 'postalCode'];
+const DIRECTORY_FIELDS_QUERY = ['slug', 'name', 'location', 'neighborhood', 'postalCode', 'lastVerifiedAt', 'origin', 'notice', 'noticeUntil'];
 const DIRECTORY_POPULATE = {
   logo: { fields: ['url', 'formats'] },
   affiliation: { fields: ['name'] },
-  pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency'] },
+  pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency', 'freeTrial'] },
   schedule: { fields: ['day', 'startTime', 'endTime', 'classType', 'style'] },
 };
 
@@ -72,6 +72,8 @@ export type UpsertSchoolInput = {
   contact?: Record<string, unknown>;
   amenities?: Record<string, unknown>;
   lastVerifiedAt?: string | null;
+  notice?: string | null;
+  noticeUntil?: string | null;
 };
 
 export type UpsertSchoolResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus; previousStatus?: DraftStatus };
@@ -201,8 +203,11 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       changedFields.push(field);
     };
 
-    for (const field of ['name', 'shortDescription', 'neighborhood', 'postalCode', 'lastVerifiedAt'] as const) {
-      if (input[field] !== undefined) write(field, input[field], existing?.[field]);
+    for (const field of ['name', 'shortDescription', 'neighborhood', 'postalCode', 'lastVerifiedAt', 'notice', 'noticeUntil'] as const) {
+      if (input[field] === undefined) continue;
+      // An empty notice removes it, like null.
+      const value = field === 'notice' && typeof input.notice === 'string' && !input.notice.trim() ? null : input[field];
+      write(field, value, existing?.[field]);
     }
     if (input.descriptionText !== undefined) {
       write('description', input.descriptionText ? textToBlocks(input.descriptionText) : null, existing?.description);
@@ -404,6 +409,8 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         todaySessions: today,
         nextSessionToday: now ? nextSessionToday(today, now) : null,
         lastVerifiedAt: s.lastVerifiedAt ?? null,
+        addedFromWeb: s.origin === 'web-agent',
+        notice: now ? activeNotice(s.notice, s.noticeUntil, now.localDate) : (s.notice?.trim() || null),
       };
     },
 
@@ -605,6 +612,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
           .sort((a: Session, b: Session) => dayIndex(a.day) - dayIndex(b.day) || toMinutes(a.startTime)! - toMinutes(b.startTime)!)
           .map((x: Session) => ({ day: x.day, start: toHHmm(x.startTime), end: toHHmm(x.endTime), classType: x.classType, style: x.style, notes: x.notes ?? null })),
         lastVerifiedAt: s.lastVerifiedAt ?? null,
+        notice: s.notice ?? null, noticeUntil: s.noticeUntil ?? null,
         updatedAt: new Date(s.updatedAt).toISOString(),
       };
     },

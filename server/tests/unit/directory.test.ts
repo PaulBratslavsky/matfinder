@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DIRECTORY_FIELDS, derivePrograms, deriveStyles, nextSessionToday, toDirectoryItem, toTodaySessions } from '../../src/lib/directory';
+import { activeNotice, DIRECTORY_FIELDS, derivePrograms, deriveStyles, nextSessionToday, toDirectoryItem, toTodaySessions } from '../../src/lib/directory';
 import { cityNow, type CityNow } from '../../src/lib/time';
 
 /** A published school as the Document Service returns it, with everything the public directory must NOT expose. */
@@ -17,7 +17,7 @@ const school = {
   gallery: [{ url: '/uploads/g.png' }],
   affiliation: { name: 'Sample Team (Demo)', website: 'https://gated.example' },
   headInstructors: [{ name: 'Gated Coach' }],
-  pricing: { visitorsWelcome: true, dropInFee: '25.00', currency: 'USD', monthlyMin: 150, monthlyMax: 200, dropInNotes: 'gated' },
+  pricing: { visitorsWelcome: true, dropInFee: '25.00', currency: 'USD', monthlyMin: 150, monthlyMax: 200, dropInNotes: 'gated', freeTrial: true },
   contact: { phone: '702-555-0100', email: 'gated@example.test' },
   amenities: { showers: true },
   schedule: [
@@ -26,6 +26,9 @@ const school = {
     { day: 'thu', startTime: '18:00:00.000', endTime: '19:00:00.000', classType: 'kids', style: 'gi' },
   ],
   lastVerifiedAt: '2026-09-15',
+  origin: 'web-agent',
+  notice: 'Closed Oct 1',
+  noticeUntil: '2026-10-01',
 };
 
 const wednesday: CityNow = { localDate: '2026-09-30', weekday: 'wed', minutes: 18 * 60 };
@@ -61,12 +64,24 @@ describe('toDirectoryItem (public directory trimming)', () => {
       visitorsWelcome: true,
       dropInFee: 25,
       currency: 'USD',
+      lastVerifiedAt: '2026-09-15',
+      addedFromWeb: true,
+      freeTrial: true,
+      notice: 'Closed Oct 1',
     });
   });
 
   it('defaults missing pieces', () => {
     const bare = toDirectoryItem({ documentId: 'd', slug: 's', name: 'n', location: school.location }, wednesday);
-    expect(bare).toMatchObject({ logo: null, affiliation: null, neighborhood: null, visitorsWelcome: null, dropInFee: null, currency: 'USD', todaySessions: [], styles: [], programs: [] });
+    expect(bare).toMatchObject({ logo: null, affiliation: null, neighborhood: null, visitorsWelcome: null, dropInFee: null, currency: 'USD', todaySessions: [], styles: [], programs: [], lastVerifiedAt: null, addedFromWeb: false, freeTrial: false, notice: null });
+  });
+
+  it('activeNotice: shows until the end date, hides after it, and hides blanks', () => {
+    expect(activeNotice('Closed', null, '2026-11-27')).toBe('Closed');
+    expect(activeNotice('Closed', '2026-11-27', '2026-11-27')).toBe('Closed');
+    expect(activeNotice('Closed', '2026-11-26', '2026-11-27')).toBeNull();
+    expect(activeNotice('   ', null, '2026-11-27')).toBeNull();
+    expect(activeNotice(null, null, '2026-11-27')).toBeNull();
   });
 });
 

@@ -204,6 +204,18 @@ describe('MCP (curator tools)', () => {
     expect(Object.keys(tool.inputSchema.properties)).not.toContain('lastVerifiedAt');
   });
 
+  it('upsert_school sets a notice that shows on the directory until its end date', async (ctx) => {
+    if (!token) return ctx.skip();
+    const slug = 'sample-henderson-grappling-demo';
+    const item = async () => (await (await get('/api/schools/directory?city=las-vegas')).json()).data.schools.find((s: { slug: string }) => s.slug === slug);
+    await callTool(token, 'upsert_school', { slug, notice: 'Closed Nov 27 (Demo)', noticeUntil: null });
+    expect(await item()).toMatchObject({ notice: 'Closed Nov 27 (Demo)' });
+    await callTool(token, 'upsert_school', { slug, noticeUntil: '2000-01-01' });
+    expect((await item()).notice).toBeNull();
+    await callTool(token, 'upsert_school', { slug, notice: '', noticeUntil: null });
+    expect((await item()).notice).toBeNull();
+  });
+
   it('set_school_schedule rejects end <= start with the field path', async (ctx) => {
     if (!token) return ctx.skip();
     const r = await callTool(token, 'set_school_schedule', {
@@ -333,6 +345,7 @@ describe('gyms from the web (MCP)', () => {
     const dir = await (await get('/api/schools/directory?city=las-vegas')).json();
     const listed = dir.data.schools.find((s: { slug: string }) => s.slug === r.data.slug);
     expect(listed).toBeTruthy();
+    expect(listed.addedFromWeb).toBe(true);
     const page = await (await get(`/api/schools/slug/${r.data.slug}`, await signUp())).json();
     expect(page.data).toMatchObject({ slug: r.data.slug, name });
     expect(page.data.schedule).toHaveLength(1);

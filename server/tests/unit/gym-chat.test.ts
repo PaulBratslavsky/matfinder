@@ -26,6 +26,7 @@ const GYM: PublicGym & { documentId: string; sourceUrls: string[]; origin: strin
     { day: 'sat', start: '10:00', end: '11:00', classType: 'kids', style: 'gi', notes: 'ages 5-12' },
   ],
   lastVerifiedAt: '2026-09-15',
+  notice: 'Closed Nov 27',
   // Private fields the public view never has; the context must not read them even if they're there.
   sourceUrls: ['https://private.example.com'],
   origin: 'web-agent',
@@ -44,6 +45,7 @@ describe('the gym as text', () => {
     expect(text).toContain('Sample Coach Ana (Demo) (black belt, 3rd degree)');
     expect(text).toContain('Instagram @summerlin');
     expect(text).toContain('Schedule and prices last verified: September 15, 2026');
+    expect(text).toContain('Notice from the gym: Closed Nov 27');
     expect(text).not.toContain('private.example.com');
     expect(text).not.toContain('web-agent');
   });

@@ -50,6 +50,8 @@ export const upsertSchool: ToolDef = {
       })
       .partial()
       .optional(),
+    notice: z.string().max(140).nullable().optional().describe("A short notice shown on the gym's listing, e.g. 'Closed Nov 27 for Thanksgiving'. Only from the gym's own pages or posts. null or an empty string removes it"),
+    noticeUntil: date.nullable().optional().describe('YYYY-MM-DD: the last day the notice applies. Omit or null to show it until it is removed'),
   }),
   output: upsertOutput,
   shrinkHint: 'The result is too large.',
