@@ -130,7 +130,7 @@ export default function ExploreScreen() {
 
   const handleRefresh = useCallback(async () => {
     await refetch();
-    user.locate();
+    user.refresh();
   }, [refetch, user]);
 
   if (isPending || (data && !now)) {
@@ -217,6 +217,23 @@ export default function ExploreScreen() {
                 <Text style={styles.noticeText}>The map needs a Mapbox token. Every gym is still listed below.</Text>
               </View>
             )}
+            {user.status === 'ask' && (
+              <View style={styles.notice}>
+                <Ionicons name="navigate-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.noticeText}>Allow your location to center the map and see how far each gym is.</Text>
+                <Pressable accessibilityRole="button" onPress={user.ask} hitSlop={8}>
+                  <Text style={styles.noticeAction}>Use my location</Text>
+                </Pressable>
+              </View>
+            )}
+            {user.status === 'denied' && (
+              <View style={styles.notice}>
+                <Ionicons name="navigate-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.noticeText}>
+                  Showing {data.city.name}. Allow location to see distances.
+                </Text>
+              </View>
+            )}
             <SheetSearch value={filters.q} onChange={(q) => setFilters({ ...filters, q })} />
             <FilterBar filters={filters} onChange={setFilters} trainingToday={trainingToday} />
             <View style={styles.sortRow}>
@@ -298,6 +315,7 @@ const useStyles = makeStyles((t) => ({
   title: { ...t.type.display, fontSize: 30, lineHeight: 32, color: t.colors.text },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: t.layout.gutter, marginBottom: 10 },
   noticeText: { ...t.type.body, flex: 1, fontSize: 13, color: t.colors.textSecondary },
+  noticeAction: { ...t.type.label, fontSize: 13, color: t.colors.redText },
   sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: t.layout.gutter, paddingTop: 10, paddingBottom: 6 },
   count: { ...t.type.label, fontSize: 13, letterSpacing: 1.2, color: t.colors.textSecondary },
   list: { flex: 1 },
