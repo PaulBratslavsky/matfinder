@@ -28,6 +28,7 @@ export type PublicGym = {
   amenities?: Record<string, boolean | null | undefined> | null;
   schedule?: { day: string; start: string; end: string; classType: string; style: string; notes?: string | null }[];
   lastVerifiedAt?: string | null;
+  notice?: string | null;
 };
 
 const DAYS: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -124,6 +125,7 @@ export function gymText(gym: PublicGym): string {
       `- ${DAYS[s.day] ?? s.day} ${s.start}–${s.end}: ${CLASS_TYPES[s.classType] ?? s.classType}, ${STYLES[s.style] ?? s.style}${s.notes ? ` (${data(s.notes)})` : ''}`,
   );
   lines.push(sessions.length ? `Weekly schedule (the gym's local time):\n${sessions.join('\n')}` : 'Weekly schedule: not listed');
+  if (gym.notice) lines.push(`Notice from the gym: ${data(gym.notice)}`);
   lines.push(gym.lastVerifiedAt ? `Schedule and prices last verified: ${longDate(gym.lastVerifiedAt)}` : 'Schedule and prices: never verified');
   return lines.join('\n');
 }

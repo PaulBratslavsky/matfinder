@@ -2,11 +2,13 @@
 export const ACTIONS = {
   read: 'plugin::matfinder.read',
   review: 'plugin::matfinder.claims.review',
+  reportsReview: 'plugin::matfinder.reports.review',
 } as const;
 
 export const ACTION_DEFS = [
   { uid: 'read', displayName: 'See gyms, claims and the homepage widgets', subCategory: 'Admin area' },
   { uid: 'claims.review', displayName: 'Contact, accept and reject claims; remove owners', subCategory: 'Claims' },
+  { uid: 'reports.review', displayName: 'Resolve problem reports', subCategory: 'Reports' },
 ];
 
 /** Admin route policies: an admin session holding `action`. */

@@ -1,10 +1,10 @@
-import { Linking, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
 import { ActionButton, Card, Label, Progress, RankBar } from '@/components/kit';
 import type { SchoolPage } from '@/lib/api/schools';
 import { formatDuration, sessionsLeftToday } from '@/lib/explore';
 import { directionsUrl } from '@/lib/geo';
 import { classTypeLabel, formatTime, styleLabel, toMinutes, type CityNow } from '@/lib/time';
-import { addDays, calendarUrl, DAY_NAMES, dayShort, type NextClass } from '@/lib/week';
+import { addDays, calendarIcs, calendarUrl, DAY_NAMES, dayShort, type NextClass } from '@/lib/week';
 import { makeStyles } from '@/theme/ThemeProvider';
 
 /** `19:00`–`20:30` → `7:00 – 8:30 pm`; `11:00`–`12:30` → `11:00 am – 12:30 pm`. */
@@ -44,7 +44,7 @@ export function NextClassCard({ school, next, now }: { school: SchoolPage; next:
   const label = next.onNow ? 'On now' : `Next session · ${today ? 'today' : next.daysAhead === 1 ? 'tomorrow' : DAY_NAMES[s.day]}`;
   const length = toMinutes(s.end) - toMinutes(s.start);
   const minutesLeft = toMinutes(s.end) - now.minutes;
-  const calendar = calendarUrl({
+  const event = {
     title: `${classTypeLabel(s.classType)} at ${school.name}`,
     date: addDays(now.localDate, next.daysAhead),
     start: s.start,
@@ -52,7 +52,19 @@ export function NextClassCard({ school, next, now }: { school: SchoolPage; next:
     timeZone: school.city?.timezone ?? 'UTC',
     location: school.location?.address,
     details: [styleLabel(s.style), s.notes].filter(Boolean).join(' · '),
-  });
+  };
+  const calendar = calendarUrl(event);
+  const downloadIcs = () => {
+    const ics = calendarIcs({ ...event, uid: `${school.slug}-${event.date}-${s.start.replace(':', '')}` });
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${school.slug}-${event.date}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   return (
     <Card style={styles.card}>
       <Label tone={next.onNow ? 'live' : 'secondary'}>{label}</Label>
@@ -78,6 +90,13 @@ export function NextClassCard({ school, next, now }: { school: SchoolPage; next:
         {directions}
         <ActionButton label="Add to calendar" icon="calendar-outline" variant="outline" compact style={styles.action} onPress={() => Linking.openURL(calendar)} />
       </View>
+      {Platform.OS === 'web' && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Download .ics" onPress={downloadIcs} style={styles.ics}>
+          <Text style={styles.icsText}>
+            Apple Calendar or Outlook? <Text style={styles.icsLink}>Download .ics</Text>
+          </Text>
+        </Pressable>
+      )}
     </Card>
   );
 }
@@ -93,4 +112,7 @@ const useStyles = makeStyles((t) => ({
   left: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 14 },
   action: { flex: 1 },
+  ics: { marginTop: 10, alignSelf: 'flex-start' },
+  icsText: { ...t.type.body, fontSize: 13, color: t.colors.textSecondary },
+  icsLink: { ...t.type.bodySemibold, color: t.colors.redText, textDecorationLine: 'underline' },
 }));

@@ -10,10 +10,10 @@ import { draftStatus, pendingDrafts, type DraftStatus, type PendingDraft } from 
 import { isUniqueViolation, ToolError } from '../../../lib/errors';
 import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
 import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewares/normalize-contact';
-import { slugifyWithFallback } from '../../../lib/slugify';
+import { pickFreeSlug, slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
-import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
+import { activeNotice, hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
 import { boundingBox, coordsOf, haversineMiles, roundMiles, type Coords } from '../../../lib/radius';
 import { sameJson } from '../../../lib/equal';
 
@@ -32,11 +32,11 @@ const MAX_SESSIONS = 100;
 const MAX_NEARBY = 300;
 
 /** What a directory item is built from, besides the school's own fields (lib/directory.ts `toDirectoryItem`). */
-const DIRECTORY_FIELDS_QUERY = ['slug', 'name', 'location', 'neighborhood', 'postalCode'];
+const DIRECTORY_FIELDS_QUERY = ['slug', 'name', 'location', 'neighborhood', 'postalCode', 'lastVerifiedAt', 'origin', 'notice', 'noticeUntil'];
 const DIRECTORY_POPULATE = {
   logo: { fields: ['url', 'formats'] },
   affiliation: { fields: ['name'] },
-  pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency'] },
+  pricing: { fields: ['visitorsWelcome', 'dropInFee', 'currency', 'freeTrial'] },
   schedule: { fields: ['day', 'startTime', 'endTime', 'classType', 'style'] },
 };
 
@@ -72,9 +72,11 @@ export type UpsertSchoolInput = {
   contact?: Record<string, unknown>;
   amenities?: Record<string, unknown>;
   lastVerifiedAt?: string | null;
+  notice?: string | null;
+  noticeUntil?: string | null;
 };
 
-export type UpsertSchoolResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus };
+export type UpsertSchoolResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus; previousStatus?: DraftStatus };
 
 export type ScheduleInput = { day: string; start: string; end: string; classType: string; style: string; notes?: string | null };
 
@@ -83,10 +85,13 @@ export type PendingType = keyof typeof PENDING_TYPES;
 
 const invalid = (message: string, path: (string | number)[]) => new ToolError('VALIDATION_ERROR', message, { path });
 
+/** Thrown inside a create-only write when the chosen slug was taken meanwhile; the caller picks another. */
+class SlugTaken extends Error {}
+
 export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.Strapi }) => {
-  /** Gyms with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
-  const claimedSchoolIds = async (): Promise<Set<string>> =>
-    ((await (strapi.plugin('matfinder')?.service('claims') as any)?.claimedSchoolIds()) as Set<string> | undefined) ?? new Set<string>();
+  /** Of these gyms, the ones with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
+  const claimedAmong = async (schoolDocumentIds: string[]): Promise<Set<string>> =>
+    ((await (strapi.plugin('matfinder')?.service('claims') as any)?.claimedAmong(schoolDocumentIds)) as Set<string> | undefined) ?? new Set<string>();
 
   // The generated types don't know these custom query shapes; the payloads below are built field by field.
   const docs = (uid: string) => strapi.documents(uid as any) as any;
@@ -156,7 +161,17 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     return geocoded;
   }
 
-  async function upsertOnce(input: UpsertSchoolInput, geocoded: MapBoxValue | undefined): Promise<UpsertSchoolResult> {
+  /** Every draft slug starting with `base`, in any city: the set pickFreeSlug avoids. */
+  async function takenSlugs(base: string): Promise<Set<string>> {
+    const rows = await docs(SCHOOL).findMany({ status: 'draft', filters: { slug: { $startsWith: base } }, fields: ['slug'], limit: 10000 });
+    return new Set(rows.map((r: any) => r.slug as string));
+  }
+
+  async function upsertOnce(
+    input: UpsertSchoolInput,
+    geocoded: MapBoxValue | undefined,
+    opts: { createOnly?: boolean; extraOnCreate?: Record<string, unknown> } = {},
+  ): Promise<UpsertSchoolResult> {
     const slug = input.slug ?? (input.name ? slugifyWithFallback(input.name, 'school') : undefined);
     if (!slug) throw invalid('send the slug of an existing school, or a name to create one', ['name']);
 
@@ -172,6 +187,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         amenities: true,
       },
     });
+    if (existing && opts.createOnly) throw new SlugTaken(slug);
     if (!existing) {
       // city is required at the service level (relations can't be required in the schema).
       for (const field of ['name', 'citySlug', 'address'] as const) {
@@ -187,8 +203,11 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       changedFields.push(field);
     };
 
-    for (const field of ['name', 'shortDescription', 'neighborhood', 'postalCode', 'lastVerifiedAt'] as const) {
-      if (input[field] !== undefined) write(field, input[field], existing?.[field]);
+    for (const field of ['name', 'shortDescription', 'neighborhood', 'postalCode', 'lastVerifiedAt', 'notice', 'noticeUntil'] as const) {
+      if (input[field] === undefined) continue;
+      // An empty notice removes it, like null.
+      const value = field === 'notice' && typeof input.notice === 'string' && !input.notice.trim() ? null : input[field];
+      write(field, value, existing?.[field]);
     }
     if (input.descriptionText !== undefined) {
       write('description', input.descriptionText ? textToBlocks(input.descriptionText) : null, existing?.description);
@@ -222,17 +241,19 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       write(component, merged, before);
     }
 
+    const previousStatus = existing ? await statusOf(strapi, SCHOOL, existing.documentId) : undefined;
     const doc = existing
       ? changedFields.length
         ? await docs(SCHOOL).update({ documentId: existing.documentId, data })
         : existing
-      : await docs(SCHOOL).create({ data: { ...data, slug } });
+      : await docs(SCHOOL).create({ data: { ...data, ...(opts.extraOnCreate ?? {}), slug } });
     return {
       documentId: doc.documentId,
       slug: doc.slug,
       created: !existing,
       changedFields,
       status: await statusOf(strapi, SCHOOL, doc.documentId),
+      previousStatus,
     };
   }
 
@@ -245,13 +266,13 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       });
       if (!city) return null;
       const now = cityNow(city.timezone);
-      const claimed = await claimedSchoolIds();
       const schools = await findAllPublished({
         filters: { city: { slug: citySlug } },
         fields: DIRECTORY_FIELDS_QUERY,
         populate: DIRECTORY_POPULATE,
         sort: 'name:asc',
       });
+      const claimed = await claimedAmong(schools.map((s) => s.documentId));
       return {
         city: {
           slug: city.slug,
@@ -276,7 +297,6 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
      */
     async getNearby(center: Coords, radius: number) {
       const box = boundingBox(center, radius);
-      const claimed = await claimedSchoolIds();
       const rows = await findAllPublished({
         filters: { latitude: { $between: [box.minLat, box.maxLat] }, longitude: { $between: [box.minLng, box.maxLng] } },
         fields: DIRECTORY_FIELDS_QUERY,
@@ -293,6 +313,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       }
       inRange.sort((a, b) => a.miles - b.miles);
       const shown = inRange.slice(0, MAX_NEARBY);
+      const claimed = await claimedAmong(shown.map(({ s }) => s.documentId));
 
       const nowByCity = new Map<string, CityNow>();
       const cities: Record<string, { name: string; state: string | null; timezone: string; localDate: string; weekday: Weekday }> = {};
@@ -336,7 +357,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         },
       });
       if (!s) return null;
-      const claimed = (await claimedSchoolIds()).has(s.documentId);
+      const claimed = (await claimedAmong([s.documentId])).has(s.documentId);
       const now = s.city?.timezone ? cityNow(s.city.timezone) : null;
       const today = now ? toTodaySessions(s.schedule, now) : [];
       const dayIndex = (d: string) => WEEKDAYS.indexOf(d as Weekday);
@@ -388,6 +409,8 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         todaySessions: today,
         nextSessionToday: now ? nextSessionToday(today, now) : null,
         lastVerifiedAt: s.lastVerifiedAt ?? null,
+        addedFromWeb: s.origin === 'web-agent',
+        notice: now ? activeNotice(s.notice, s.noticeUntil, now.localDate) : (s.notice?.trim() || null),
       };
     },
 
@@ -405,6 +428,28 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         if (isUniqueViolation(e)) return run();
         throw e;
       }
+    },
+
+    /**
+     * Create a NEW school draft, never update one (add_gym_from_web, and upsert_school without a slug). The slug is
+     * the name's, or the first free variant (pickFreeSlug), checked across every city. `extraOnCreate` is written in
+     * the same create (add_gym_from_web's provenance). Each attempt is its own transaction, so a unique violation
+     * (a concurrent create took the slug) is retried with a fresh slug, also on Postgres.
+     */
+    async createDraft(input: UpsertSchoolInput, extraOnCreate: Record<string, unknown> = {}): Promise<UpsertSchoolResult> {
+      if (!input.name) throw invalid('required to create a school', ['name']);
+      const { slug: _ignored, ...rest } = input;
+      const geocoded = await geocodeIfNeeded(rest);
+      const base = slugifyWithFallback(input.name, 'school');
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const slug = pickFreeSlug(base, input.citySlug ?? 'city', await takenSlugs(base));
+        try {
+          return await strapi.db.transaction(() => upsertOnce({ ...rest, slug }, geocoded, { createOnly: true, extraOnCreate }));
+        } catch (e) {
+          if (!(e instanceof SlugTaken) && !isUniqueViolation(e)) throw e;
+        }
+      }
+      throw invalid('could not find a free slug for this name; try again', ['name']);
     },
 
     /**
@@ -428,10 +473,11 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       });
       return strapi.db.transaction(async () => {
         const school = await bySlugOrThrow(SCHOOL, slug, 'school');
+        const previousStatus = await statusOf(strapi, SCHOOL, school.documentId);
         // The schedule-validate middleware checks enums and end > start.
         await docs(SCHOOL).update({ documentId: school.documentId, data: { schedule: rows } });
         const byDay = Object.fromEntries(WEEKDAYS.map((d) => [d, rows.filter((r) => r.day === d).length]));
-        return { slug, sessionCount: rows.length, byDay };
+        return { slug, sessionCount: rows.length, byDay, previousStatus };
       });
     },
 
@@ -566,6 +612,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
           .sort((a: Session, b: Session) => dayIndex(a.day) - dayIndex(b.day) || toMinutes(a.startTime)! - toMinutes(b.startTime)!)
           .map((x: Session) => ({ day: x.day, start: toHHmm(x.startTime), end: toHHmm(x.endTime), classType: x.classType, style: x.style, notes: x.notes ?? null })),
         lastVerifiedAt: s.lastVerifiedAt ?? null,
+        notice: s.notice ?? null, noticeUntil: s.noticeUntil ?? null,
         updatedAt: new Date(s.updatedAt).toISOString(),
       };
     },

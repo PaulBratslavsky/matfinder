@@ -142,8 +142,13 @@ export function ClaimsTab({ onChanged }: { onChanged?: () => void }) {
                       <Typography variant="pi" textColor="neutral600" ellipsis>
                         {ROLE_LABELS[c.role]} · {c.phone}
                       </Typography>
-                      <Typography variant="pi" textColor="neutral600" ellipsis title={c.email}>
-                        {c.email}
+                      <Typography
+                        variant="pi"
+                        textColor="neutral600"
+                        ellipsis
+                        title={`${c.email}: not verified. Anyone can sign up with any address, so confirm who they are by phone.`}
+                      >
+                        {c.email} (unverified)
                       </Typography>
                     </Table.Cell>
                     <Table.Cell style={textColumn(30)}>

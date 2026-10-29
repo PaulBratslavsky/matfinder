@@ -58,7 +58,17 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', body: JSON.stringify(body), json: true });
 }
 
-async function request<T>(path: string, opts: { method: 'GET' | 'POST'; body?: string; json?: boolean }): Promise<T> {
+/** PUT to a Strapi path (no body), with the session like apiGet. */
+export async function apiPut<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'PUT' });
+}
+
+/** DELETE a Strapi path, with the session like apiGet. */
+export async function apiDelete<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' });
+}
+
+async function request<T>(path: string, opts: { method: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; json?: boolean }): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...(opts.json ? { 'Content-Type': 'application/json' } : {}) };
   if (Platform.OS !== 'web' && cookieProvider) {
     const cookie = await cookieProvider();

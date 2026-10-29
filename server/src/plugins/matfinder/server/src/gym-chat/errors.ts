@@ -6,6 +6,7 @@ export const PERSON_ERRORS = {
   question_too_long: 'That question is too long. Keep it under 500 characters.',
   chat_too_long: 'This chat is long. Start a new one to keep asking.',
   daily_limit: "You've asked a lot of questions today. Try again tomorrow.",
+  service_limit: "Ask about this gym has reached today's limit. Try again tomorrow.",
   timeout: 'That took too long. Try again.',
   busy: 'Too many people are asking right now. Try again in a minute.',
   cut_off: 'The answer was cut off. Try a narrower question.',

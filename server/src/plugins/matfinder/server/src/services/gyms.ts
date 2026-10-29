@@ -40,8 +40,11 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       count('never-published'),
       strapi.plugin('matfinder').service('discovery').listFromWeb(),
     ]);
-    const claims = await strapi.plugin('matfinder').service('claims').summary();
+    const [claims, reports] = await Promise.all([
+      strapi.plugin('matfinder').service('claims').summary(),
+      strapi.plugin('matfinder').service('reports').summary(),
+    ]);
     const fromWeb = { total: web.total, notLive: web.notLive, thisWeek: web.thisWeek };
-    return { gyms: { total, published, unpublishedChanges, neverPublished, fromWeb, claimed: claims.claimed }, claims };
+    return { gyms: { total, published, unpublishedChanges, neverPublished, fromWeb, claimed: claims.claimed }, claims, reports };
   },
 });

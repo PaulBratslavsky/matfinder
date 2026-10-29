@@ -7,6 +7,9 @@ export const GYM_CHAT_LIMITS = {
   /** The longest an earlier answer or its thinking can be as the browser sends it back: `maxTokens` at about
    * 4 characters per token, with room for JSON. A longer turn wasn't written by the model. */
   answerChars: 20_000,
+  /** Characters of the whole conversation as the browser sends it (questions, earlier answers and their thinking).
+   * Each turn bills all of it, so this bounds a turn's input whatever the turn count. */
+  chatChars: 60_000,
   /** Per signed-in user per day (UTC), counted in memory by this Strapi process. */
   questionsPerDay: 40,
   /** For the whole answer, from the first chunk. */
@@ -65,6 +68,7 @@ export function checkConversation(messages: AnyMessage[]): ConversationProblem |
   const replies = messages.filter((m) => m.role !== 'user');
   if (replies.length > 2 * questions.length) return 'chat_too_long';
   if (replies.some((m) => messageSize(m) > GYM_CHAT_LIMITS.answerChars)) return 'chat_too_long';
+  if (messages.reduce((n, m) => n + messageSize(m), 0) > GYM_CHAT_LIMITS.chatChars) return 'chat_too_long';
   return null;
 }
 
@@ -87,16 +91,25 @@ export class DailyCounter {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  /** Counts one question for `key`. False, and nothing counted, when the key is at the limit. */
-  take(key: string): boolean {
+  /** A new UTC day starts every key over. */
+  private roll() {
     const today = this.now().toISOString().slice(0, 10);
     if (today !== this.day) {
       this.day = today;
       this.counts.clear();
     }
-    const used = this.counts.get(key) ?? 0;
-    if (used >= this.limit) return false;
-    this.counts.set(key, used + 1);
+  }
+
+  /** Whether `key` is under the limit today. Counts nothing. */
+  has(key: string): boolean {
+    this.roll();
+    return (this.counts.get(key) ?? 0) < this.limit;
+  }
+
+  /** Counts one question for `key`. False, and nothing counted, when the key is at the limit. */
+  take(key: string): boolean {
+    if (!this.has(key)) return false;
+    this.counts.set(key, (this.counts.get(key) ?? 0) + 1);
     return true;
   }
 }

@@ -169,7 +169,7 @@ erDiagram
 |---|---|---|
 | `GET /api/schools/directory?city=las-vegas` | Everyone (Public role) | The city (name, time zone, center, zoom), its local date and weekday, and each published school with coordinates in a **trimmed** shape: name, logo, area, team, styles, programs, visitors welcome, drop-in fee, and **today's sessions only**. `Cache-Control: public, max-age=60`. |
 | `GET /api/schools/slug/:slug` | Signed-in users (Authenticated role) | The full published page: description, gallery, coaches, pricing, contact, amenities, the whole week, `nextSessionToday`, `lastVerifiedAt`. |
-| `GET /api/cities` | Everyone | Core find. |
+| `GET /api/cities` | Nobody (closed, B-2) | Core find, not granted to any role. |
 | `/api/auth/*` | Everyone | Better Auth: sign up, sign in, session, sign out. |
 | `POST /mcp` | Admin tokens holding the MatFinder MCP actions | The 10 curation tools and the `find_new_gyms` prompt. |
 | `POST /api/matfinder/claims` | Signed-in users (Authenticated role) | `{ schoolSlug, role, phone, message? }`: claim a published gym. `409 ALREADY_CLAIMED` / `CLAIM_OPEN`, `429 TOO_MANY_CLAIMS`, `422` for a bad phone. |

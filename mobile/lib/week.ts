@@ -120,6 +120,71 @@ export function calendarUrl(e: { title: string; date: string; start: string; end
     .join('&')}`;
 }
 
+/** Minutes the time zone is ahead of UTC at `utcMs` (negative west of Greenwich). */
+function tzOffsetMinutes(utcMs: number, timeZone: string): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(new Date(utcMs))
+      .map((x) => [x.type, x.value]),
+  );
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - utcMs) / 60_000;
+}
+
+/** A city-local date and `HH:mm` as the UTC instant (two passes settle DST edges). */
+export function zonedToUtc(date: string, hhmm: string, timeZone: string): Date {
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const wall = Date.UTC(y, m - 1, d, h, mi);
+  const first = wall - tzOffsetMinutes(wall, timeZone) * 60_000;
+  return new Date(wall - tzOffsetMinutes(first, timeZone) * 60_000);
+}
+
+const icsStamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+/**
+ * RFC 5545 line folding: a line longer than 75 octets (UTF-8 bytes, not characters) continues on the next line
+ * after a space, which counts toward that line's 75. Never splits a character.
+ */
+const utf8 = new TextEncoder();
+const fold = (line: string) => {
+  const out: string[] = [];
+  let cur = '';
+  let bytes = 0;
+  for (const ch of line) {
+    const n = utf8.encode(ch).length;
+    const limit = out.length ? 74 : 75;
+    if (bytes + n > limit) {
+      out.push(cur);
+      cur = '';
+      bytes = 0;
+    }
+    cur += ch;
+    bytes += n;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+};
+
+/** One class as an .ics file (Apple Calendar, Outlook…), same fields as `calendarUrl`. */
+export function calendarIcs(e: { uid: string; title: string; date: string; start: string; end: string; timeZone: string; location?: string | null; details?: string }, now = new Date()): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//MatFinder//EN',
+    'BEGIN:VEVENT',
+    `UID:${e.uid}@matfinder`,
+    `DTSTAMP:${icsStamp(now)}`,
+    `DTSTART:${icsStamp(zonedToUtc(e.date, e.start, e.timeZone))}`,
+    `DTEND:${icsStamp(zonedToUtc(e.date, e.end, e.timeZone))}`,
+    `SUMMARY:${icsText(e.title)}`,
+    ...(e.location ? [`LOCATION:${icsText(e.location)}`] : []),
+    ...(e.details ? [`DESCRIPTION:${icsText(e.details)}`] : []),
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
+
 /** One line of "Can I train here tonight?": `ok` null means unknown (ask the gym). */
 export type CheckItem = { ok: boolean | null; strong: string; rest?: string };
 
@@ -129,7 +194,7 @@ export function visitChecklist(school: Pick<SchoolPage, 'pricing' | 'amenities'>
   const a = school.amenities;
   const items: CheckItem[] = [];
   if (p?.visitorsWelcome === true) items.push({ ok: true, strong: 'Visitors welcome' });
-  else if (p?.visitorsWelcome === false) items.push({ ok: false, strong: 'Members only', rest: ': ask before you visit' });
+  else if (p?.visitorsWelcome === false) items.push({ ok: false, strong: 'No drop-ins', rest: ': ask before you visit' });
   else items.push({ ok: null, strong: 'Visitor policy not listed', rest: ': ask the gym' });
 
   if (p?.dropInFee != null) {

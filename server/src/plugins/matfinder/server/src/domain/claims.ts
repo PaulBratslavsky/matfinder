@@ -4,6 +4,7 @@
  *   pending → contacted → accepted | rejected
  *   pending → accepted | rejected
  *   accepted → withdrawn (an admin removes the owner)
+ *   pending | contacted → withdrawn (the claimant deleted their account; services/claims.ts forgetUser)
  */
 export type ClaimStatus = 'pending' | 'contacted' | 'accepted' | 'rejected' | 'withdrawn';
 export type ClaimAction = 'contacted' | 'accept' | 'reject' | 'remove-owner';

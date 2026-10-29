@@ -31,6 +31,7 @@ const SERVER_CODES = new Set([
   'question_too_long',
   'chat_too_long',
   'daily_limit',
+  'service_limit',
   'timeout',
   'busy',
   'cut_off',

@@ -4,6 +4,7 @@
  * ALLOW_ADMIN_BOOTSTRAP on a fresh database and are skipped otherwise).
  */
 import { randomBytes } from 'node:crypto';
+import Database from 'better-sqlite3';
 import { beforeAll, describe, expect, inject, it } from 'vitest';
 import { DIRECTORY_FIELDS } from '../src/lib/directory';
 import { haversineMiles, type Coords } from '../src/lib/radius';
@@ -53,6 +54,26 @@ async function callTool(token: string, name: string, args: Record<string, unknow
   return { isError: !!result.isError, data: result.structuredContent, error: result.isError ? JSON.parse(result.content[0].text) : null };
 }
 
+/** An admin with only plugin::matfinder.read (no claims.review or reports.review), through the admin registration flow. */
+async function readOnlyAdmin(superJwt: string): Promise<string> {
+  const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
+  const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
+  await fetch(`${API}/admin/roles/${role.id}/permissions`, {
+    method: 'PUT',
+    headers: auth,
+    body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
+  });
+  const user = (
+    await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
+  ).data;
+  const reg = await fetch(`${API}/admin/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
+  });
+  return (await reg.json()).data.token;
+}
+
 describe('public directory', () => {
   it('lists the published sample schools with exactly the public field set', async () => {
     const res = await get('/api/schools/directory?city=las-vegas');
@@ -71,8 +92,18 @@ describe('public directory', () => {
     expect((await get('/api/schools/directory?city=reno')).status).toBe(404);
   });
 
-  it('serves cities publicly (core find)', async () => {
-    expect((await get('/api/cities')).status).toBe(200);
+  it('serves cities to no one, with or without populate (B-2)', async () => {
+    const cookie = await signUp();
+    for (const path of [
+      '/api/cities',
+      '/api/cities?populate=schools',
+      '/api/cities?populate=*',
+      '/api/cities?populate[schools][populate]=contact',
+      '/api/cities?populate[schools][fields][0]=name&status=draft',
+    ]) {
+      expect((await get(path)).status).toBe(403);
+      expect((await get(path, cookie)).status).toBe(403);
+    }
   });
 });
 
@@ -125,6 +156,35 @@ describe('MCP (curator tools)', () => {
     expect(body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([...TOOLS].sort());
   });
 
+  it('the curator token lists no built-in content tools (delete, unpublish, discard, media)', async (ctx) => {
+    if (!token) return ctx.skip();
+    const { body } = await mcp(token, 'tools/list');
+    const names: string[] = body.result.tools.map((t: { name: string }) => t.name);
+    expect(names.filter((n) => /^(create|update|delete|publish|unpublish|discard)_|media|upload/i.test(n))).toEqual([]);
+  });
+
+  it('a token that also holds a Content Manager permission sees extra built-in tools (why the curator token must not)', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const res = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({
+        name: `it-wide-${randomBytes(3).toString('hex')}`,
+        lifespan: null,
+        adminPermissions: [
+          ...TOOLS.map((t) => ({ action: `plugin::matfinder.mcp.${t.replace(/_/g, '-')}` })),
+          { action: 'plugin::content-manager.explorer.delete', subject: 'api::school.school' },
+        ],
+      }),
+    });
+    expect(res.status).toBe(201);
+    const wide = (await res.json()).data.accessKey;
+    const { body } = await mcp(wide, 'tools/list');
+    const extra = body.result.tools.map((t: { name: string }) => t.name).filter((n: string) => !TOOLS.includes(n));
+    expect(extra.length).toBeGreaterThan(0);
+  });
+
   it('rejects a call without a token', async () => {
     const { status, body } = await mcp(null, 'tools/list');
     expect(status === 401 || !!body?.error).toBe(true);
@@ -153,6 +213,30 @@ describe('MCP (curator tools)', () => {
     expect(pending.data.items.map((i: { slug: string }) => i.slug)).not.toContain(r.data.slug);
   });
 
+  it('upsert_school never changes lastVerifiedAt (only a person sets "verified")', async (ctx) => {
+    if (!token) return ctx.skip();
+    const slug = 'sample-summerlin-bjj-demo';
+    const before = await callTool(token, 'get_school_draft', { slug });
+    await callTool(token, 'upsert_school', { slug, lastVerifiedAt: '2001-01-01', neighborhood: 'Summerlin' });
+    const after = await callTool(token, 'get_school_draft', { slug });
+    expect(after.data.lastVerifiedAt).toBe(before.data.lastVerifiedAt);
+    const { body } = await mcp(token, 'tools/list');
+    const tool = body.result.tools.find((t: { name: string }) => t.name === 'upsert_school');
+    expect(Object.keys(tool.inputSchema.properties)).not.toContain('lastVerifiedAt');
+  });
+
+  it('upsert_school sets a notice that shows on the directory until its end date', async (ctx) => {
+    if (!token) return ctx.skip();
+    const slug = 'sample-henderson-grappling-demo';
+    const item = async () => (await (await get('/api/schools/directory?city=las-vegas')).json()).data.schools.find((s: { slug: string }) => s.slug === slug);
+    await callTool(token, 'upsert_school', { slug, notice: 'Closed Nov 27 (Demo)', noticeUntil: null });
+    expect(await item()).toMatchObject({ notice: 'Closed Nov 27 (Demo)' });
+    await callTool(token, 'upsert_school', { slug, noticeUntil: '2000-01-01' });
+    expect((await item()).notice).toBeNull();
+    await callTool(token, 'upsert_school', { slug, notice: '', noticeUntil: null });
+    expect((await item()).notice).toBeNull();
+  });
+
   it('set_school_schedule rejects end <= start with the field path', async (ctx) => {
     if (!token) return ctx.skip();
     const r = await callTool(token, 'set_school_schedule', {
@@ -161,6 +245,48 @@ describe('MCP (curator tools)', () => {
     });
     expect(r.isError).toBe(true);
     expect(r.error).toMatchObject({ error: 'VALIDATION_ERROR', path: ['sessions', 0, 'end'] });
+  });
+
+  it('stores a website longer than 255 characters, and refuses one over 500', async (ctx) => {
+    if (!token) return ctx.skip();
+    const long = `example.com/${'a'.repeat(380)}`; // 392 characters; 400 once https:// is added
+    const r = await callTool(token, 'upsert_school', {
+      name: `Integration Long URL ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas',
+      address: '2 Test Way, Las Vegas, NV',
+      latitude: 36.18,
+      longitude: -115.15,
+      contact: { website: long },
+    });
+    expect(r.isError).toBe(false);
+    const draft = await callTool(token, 'get_school_draft', { slug: r.data.slug });
+    expect(draft.data.contact.website).toBe(`https://${long}`);
+
+    const tooLong = await mcp(token, 'tools/call', { name: 'upsert_school', arguments: { slug: r.data.slug, contact: { website: `example.com/${'a'.repeat(500)}` } } });
+    expect(!!tooLong.body.error || !!tooLong.body.result?.isError).toBe(true);
+    expect((await callTool(token, 'get_school_draft', { slug: r.data.slug })).data.contact.website).toBe(`https://${long}`);
+  });
+
+  it("doesn't publish over a person's unpublished edits", async (ctx) => {
+    if (!token) return ctx.skip();
+    const jwt = inject('adminJwt');
+    const r = await callTool(token, 'upsert_school', {
+      name: `Integration Person Edit ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas', address: '5 Test Way, Las Vegas, NV', latitude: 36.19, longitude: -115.16,
+    });
+    expect(r.data.status).toBe('published');
+    // A person saves a draft change in the admin without publishing.
+    const save = await fetch(`${API}/content-manager/collection-types/api::school.school/${r.data.documentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ neighborhood: 'Edited by a person' }),
+    });
+    expect(save.status).toBe(200);
+    const u = await callTool(token, 'upsert_school', { slug: r.data.slug, pricing: { visitorsWelcome: true } });
+    expect(u.data).toMatchObject({ status: 'unpublished-changes' });
+    expect(u.data.notPublishedBecause).toMatch(/unpublished changes before this write/);
+    const dir = (await (await get('/api/schools/directory?city=las-vegas')).json()).data.schools;
+    expect(dir.find((s: { slug: string }) => s.slug === r.data.slug)).toMatchObject({ visitorsWelcome: null });
   });
 });
 
@@ -240,6 +366,7 @@ describe('gyms from the web (MCP)', () => {
     const dir = await (await get('/api/schools/directory?city=las-vegas')).json();
     const listed = dir.data.schools.find((s: { slug: string }) => s.slug === r.data.slug);
     expect(listed).toBeTruthy();
+    expect(listed.addedFromWeb).toBe(true);
     const page = await (await get(`/api/schools/slug/${r.data.slug}`, await signUp())).json();
     expect(page.data).toMatchObject({ slug: r.data.slug, name });
     expect(page.data.schedule).toHaveLength(1);
@@ -255,6 +382,67 @@ describe('gyms from the web (MCP)', () => {
     expect(list.body.result.prompts.map((p: { name: string }) => p.name)).toContain('find_new_gyms');
     const got = await mcp(token, 'prompts/get', { name: 'find_new_gyms', arguments: { city: 'las-vegas', area: 'Summerlin' } });
     expect(got.body.result.messages[0].content.text).toMatch(/Summerlin in las-vegas/);
+  });
+
+  it('never overwrites: a confirmed same-name gym gets a new slug and the listed one is unchanged', async (ctx) => {
+    if (!token) return ctx.skip();
+    const before = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    const r = await callTool(token, 'add_gym_from_web', {
+      citySlug: 'las-vegas',
+      name: before.data.name,
+      address: '3 Other Way, Las Vegas, NV',
+      latitude: 36.25,
+      longitude: -115.25,
+      sourceUrls: ['https://example.com/other-summerlin'],
+      confirmNotDuplicate: true,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.data.slug).toBe('sample-summerlin-bjj-demo-las-vegas');
+    const after = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    expect(after.data).toMatchObject({ documentId: before.data.documentId, city: before.data.city, location: before.data.location, updatedAt: before.data.updatedAt });
+  });
+
+  it('a same-named gym in another city is created there; a shared phone across cities is flagged', async (ctx) => {
+    if (!token) return ctx.skip();
+    const hex = randomBytes(3).toString('hex');
+    const citySlug = `it-city-${hex}`;
+    const cityRes = await fetch(`${API}/content-manager/collection-types/api::city.city`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({
+        // Far from every other city (Honolulu), so it never becomes the nearby test's "nearest city with gyms".
+        name: `Integration City ${hex}`, slug: citySlug, timezone: 'Pacific/Honolulu',
+        center: { longitude: -157.86, latitude: 21.31, address: 'Integration City', zoom: 10.5, pitch: 0, bearing: 0 },
+      }),
+    });
+    expect([200, 201]).toContain(cityRes.status);
+    const lv = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+
+    const flagged = await callTool(token, 'add_gym_from_web', {
+      citySlug, name: 'Totally Different Grappling', address: '1 Pearl St', latitude: 21.32, longitude: -157.87,
+      phone: lv.data.contact.phone, sourceUrls: ['https://example.com/tdg'],
+    });
+    expect(flagged.isError).toBe(true);
+    expect(flagged.error.error).toBe('DUPLICATE_SUSPECTED');
+    const c = flagged.error.candidates.find((x: { slug: string }) => x.slug === 'sample-summerlin-bjj-demo');
+    expect(c.reasons).toEqual(expect.arrayContaining(['same phone', 'in another city (las-vegas)']));
+
+    const created = await callTool(token, 'add_gym_from_web', {
+      citySlug, name: lv.data.name, address: '2 Pearl St', latitude: 21.33, longitude: -157.88, sourceUrls: ['https://example.com/it-summerlin'],
+    });
+    expect(created.isError).toBe(false);
+    expect(created.data.slug).toBe(`sample-summerlin-bjj-demo-${citySlug}`);
+    const lvAfter = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    expect(lvAfter.data).toMatchObject({ city: { slug: 'las-vegas' }, location: lv.data.location, updatedAt: lv.data.updatedAt });
+  });
+
+  it('upsert_school without a slug creates, never updates a same-named gym', async (ctx) => {
+    if (!token) return ctx.skip();
+    const lv = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    const r = await callTool(token, 'upsert_school', { name: lv.data.name, citySlug: 'las-vegas', address: '4 Test Way', latitude: 36.2, longitude: -115.2 });
+    expect(r.data).toMatchObject({ created: true });
+    expect(r.data.slug).not.toBe('sample-summerlin-bjj-demo');
+    expect((await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' })).data.updatedAt).toBe(lv.data.updatedAt);
   });
 });
 
@@ -307,26 +495,6 @@ describe('gym claims', () => {
     return dir.data.schools.find((s: { slug: string }) => s.slug === SLUG).claimed;
   };
 
-  /** An admin with only plugin::matfinder.read (no claims.review), through the admin registration flow. */
-  async function readOnlyAdmin(superJwt: string): Promise<string> {
-    const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${superJwt}` };
-    const role = (await (await fetch(`${API}/admin/roles`, { method: 'POST', headers: auth, body: JSON.stringify({ name: `it-readonly-${randomBytes(3).toString('hex')}`, description: 'read only' }) })).json()).data;
-    await fetch(`${API}/admin/roles/${role.id}/permissions`, {
-      method: 'PUT',
-      headers: auth,
-      body: JSON.stringify({ permissions: [{ action: 'plugin::matfinder.read', subject: null, properties: {}, conditions: [] }] }),
-    });
-    const user = (
-      await (await fetch(`${API}/admin/users`, { method: 'POST', headers: auth, body: JSON.stringify({ firstname: 'Read', lastname: 'Only', email: `it-ro-${randomBytes(4).toString('hex')}@example.test`, roles: [role.id] }) })).json()
-    ).data;
-    const reg = await fetch(`${API}/admin/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ registrationToken: user.registrationToken, userInfo: { firstname: 'Read', lastname: 'Only', password: `Aa1${randomBytes(8).toString('hex')}` } }),
-    });
-    return (await reg.json()).data.token;
-  }
-
   it('a signed-in owner claims a gym; bad and repeated claims are refused', async () => {
     expect((await claim(undefined, { schoolSlug: SLUG, role: 'owner', phone: '702-555-0199' })).status).toBeGreaterThanOrEqual(401);
     const owner = await signUp();
@@ -341,6 +509,8 @@ describe('gym claims', () => {
     expect((await again.json()).error.name).toBe('CLAIM_OPEN');
     const mine = await (await get(`/api/matfinder/claims/mine?school=${SLUG}`, owner)).json();
     expect(mine.status).toBe('pending');
+    // Unknown gym: no claim, not an error.
+    expect(await (await get('/api/matfinder/claims/mine?school=no-such-gym', owner)).json()).toEqual({ status: null, createdAt: null });
     expect(await claimed()).toBe(false);
   });
 
@@ -378,6 +548,30 @@ describe('gym claims', () => {
     expect((await act(jwt, c.documentId, 'remove-owner')).status).toBe(422);
     expect((await act(jwt, c.documentId, 'remove-owner', 'Owner sold the gym.')).status).toBe(200);
     expect(await claimed()).toBe(false);
+  });
+
+  it('a double tap makes one claim, and two admins accepting rivals makes one owner (B-5)', async (ctx) => {
+    const RACE = 'sample-henderson-grappling-demo';
+    const body = { schoolSlug: RACE, role: 'owner', phone: '702-555-0177' };
+    const tapper = await signUp();
+    const taps = await Promise.all([claim(tapper, body), claim(tapper, body)]);
+    expect(taps.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect((await taps.find((r) => r.status === 409)!.json()).error.name).toBe('CLAIM_OPEN');
+
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    expect((await claim(await signUp(), { ...body, role: 'manager' })).status).toBe(201);
+    const board = await (await fetch(`${API}/matfinder/claims?status=pending`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const rivals = board.items.filter((x: { schoolSlug: string }) => x.schoolSlug === RACE);
+    expect(rivals).toHaveLength(2);
+    const accepts = await Promise.all(rivals.map((c: { documentId: string }) => act(jwt, c.documentId, 'accept')));
+    expect(accepts.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(['ALREADY_CLAIMED', 'INVALID_STATE']).toContain((await accepts.find((r) => r.status === 409)!.json()).error.name);
+    const accepted = await (await fetch(`${API}/matfinder/claims?status=accepted`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const owners = accepted.items.filter((x: { schoolSlug: string }) => x.schoolSlug === RACE);
+    expect(owners).toHaveLength(1);
+    // Leave the gym unclaimed for later tests.
+    expect((await act(jwt, owners[0].documentId, 'remove-owner', 'Integration test cleanup.')).status).toBe(200);
   });
 });
 
@@ -493,6 +687,55 @@ describe('gym chat (scripted model)', () => {
     expect(answer).toContain('Visitors pay the drop-in fee.');
     expect(answer).not.toContain('sign a waiver at the desk');
   });
+
+  it('parallel upserts of the same question make one entry', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ name: `it-knowledge-race-${randomBytes(3).toString('hex')}`, lifespan: null, adminPermissions: [{ action: 'plugin::matfinder.mcp.upsert-knowledge' }] }),
+    });
+    expect(tokenRes.status).toBe(201);
+    const tokenKnowledge = (await tokenRes.json()).data.accessKey;
+    const q = `Is there parking ${randomBytes(3).toString('hex')}?`;
+    const args = { schoolSlug: 'sample-summerlin-bjj-demo', question: q, answer: 'Yes, in the back.', category: 'facilities', sourceUrls: ['https://example.com/p'] };
+    const results = await Promise.all(
+      [q, q, q.toUpperCase(), q].map((question) => callTool(tokenKnowledge, 'upsert_knowledge', { ...args, question })),
+    );
+    expect(results.every((r) => !r.isError)).toBe(true);
+    expect(new Set(results.map((r) => r.data.id)).size).toBe(1);
+    expect(results.filter((r) => r.data.created).length).toBe(1);
+  });
+
+  it('hides dedupeKey from the Content Manager', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const res = await fetch(`${API}/content-manager/content-types/plugin::matfinder.knowledge/configuration`, { headers: { Authorization: `Bearer ${jwt()}` } });
+    expect(res.status).toBe(200);
+    const layouts = JSON.stringify((await res.json()).data.contentType.layouts);
+    expect(layouts).toContain('"question"');
+    expect(layouts).not.toContain('"dedupeKey"');
+  });
+
+  it('re-keys an entry an admin renamed instead of duplicating it', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ name: `it-knowledge-rename-${randomBytes(3).toString('hex')}`, lifespan: null, adminPermissions: [{ action: 'plugin::matfinder.mcp.upsert-knowledge' }] }),
+    });
+    const t = (await tokenRes.json()).data.accessKey;
+    const tag = randomBytes(3).toString('hex');
+    const base = { schoolSlug: 'sample-summerlin-bjj-demo', answer: 'Yes.', category: 'facilities', sourceUrls: ['https://example.com/p'] };
+    const first = await callTool(t, 'upsert_knowledge', { ...base, question: `Showers ${tag}?` });
+    const renamed = await fetch(`${API}/content-manager/collection-types/plugin::matfinder.knowledge/${first.data.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ question: `Changing rooms ${tag}?` }),
+    });
+    expect(renamed.status).toBe(200);
+    const again = await callTool(t, 'upsert_knowledge', { ...base, question: `Changing rooms ${tag}?` });
+    expect(again.data).toMatchObject({ id: first.data.id, created: false });
+  });
 });
 
 describe('nearby gyms (plan 08, M14)', () => {
@@ -604,5 +847,136 @@ describe('nearby gyms (plan 08, M14)', () => {
     expect(layouts).toContain('"location"');
     expect(layouts).not.toContain('"latitude"');
     expect(layouts).not.toContain('"longitude"');
+  });
+});
+
+describe('account deletion (C15)', () => {
+  const SLUG = 'sample-henderson-grappling-demo';
+  const post = (path: string, body: unknown, cookie?: string) =>
+    fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: WEB_ORIGIN, ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+
+  it('needs the password, removes the account and its sessions, and clears its claims', async (ctx) => {
+    const email = `it-del-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Delete Me', email, password });
+    expect(up.status).toBe(200);
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    expect((await post('/api/matfinder/claims', { schoolSlug: SLUG, role: 'manager', phone: '702-555-0142', message: 'Front desk.' }, cookie)).status).toBe(201);
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const boardOf = async (status: string) =>
+      (await (await fetch(`${API}/matfinder/claims?status=${status}`, { headers: { Authorization: `Bearer ${jwt}` } })).json()).items as { documentId: string; email: string }[];
+    const claimId = (await boardOf('pending')).find((x) => x.email === email)!.documentId;
+
+    expect((await post('/api/auth/delete-user', {}, cookie)).status).toBe(400); // no password
+    const wrong = await post('/api/auth/delete-user', { password: 'not-the-password' }, cookie);
+    expect(wrong.status).toBe(400);
+    expect((await wrong.json()).code).toBe('INVALID_PASSWORD');
+    const done = await post('/api/auth/delete-user', { password }, cookie);
+    expect(done.status).toBe(200);
+    expect(await done.json()).toEqual({ success: true, message: 'User deleted' });
+
+    // No session: Better Auth answers JSON null, which the Strapi plugin relays as a Koa null body, so an empty 204.
+    const after = await get('/api/auth/get-session', cookie);
+    expect([after.status, await after.text()]).toEqual([204, '']);
+    expect((await post('/api/auth/sign-in/email', { email, password })).status).toBe(401);
+
+    const board = await boardOf('withdrawn');
+    expect(board.find((x) => x.documentId === claimId)).toMatchObject({ name: 'Deleted account', email: 'deleted@matfinder.invalid', phone: '—', message: null, status: 'withdrawn' });
+    expect(JSON.stringify(board)).not.toContain(email);
+  });
+
+  it("deletes the user's open reports and unlinks resolved ones", async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const email = `it-delrep-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Reporter', email, password });
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const marker = `delete-me-${randomBytes(4).toString('hex')}`;
+    expect((await post('/api/matfinder/reports', { schoolSlug: 'sample-summerlin-bjj-demo', kind: 'other', message: marker }, cookie)).status).toBe(201);
+    expect((await post('/api/auth/delete-user', { password }, cookie)).status).toBe(200);
+    const board = await (await fetch(`${API}/matfinder/reports`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(JSON.stringify(board)).not.toContain(marker);
+  });
+
+  it("deletes the user's saved gyms", async (ctx) => {
+    if (process.env.API_URL && !process.env.API_URL.includes(':1342')) return ctx.skip(); // reads the local test DB
+    const db = new Database('.tmp/test.db', { readonly: true });
+    const count = () => (db.prepare('SELECT COUNT(*) AS n FROM matfinder_saved_gyms').get() as { n: number }).n;
+    const email = `it-delsave-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Saver', email, password });
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    expect((await fetch(`${API}/api/matfinder/saved/sample-summerlin-bjj-demo`, { method: 'PUT', headers: { cookie } })).status).toBe(200);
+    const before = count();
+    expect((await post('/api/auth/delete-user', { password }, cookie)).status).toBe(200);
+    expect(count()).toBe(before - 1);
+    db.close();
+  });
+});
+
+describe('problem reports', () => {
+  const SLUG = 'sample-summerlin-bjj-demo';
+  const json = (method: string, body: unknown, cookie?: string, jwt?: string) => ({
+    method,
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}), ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const report = (cookie: string | undefined, body: Record<string, unknown>) => fetch(`${API}/api/matfinder/reports`, json('POST', body, cookie));
+
+  it('a signed-in user reports a problem; repeats, bad input and signed-out calls are refused', async () => {
+    expect((await report(undefined, { schoolSlug: SLUG, kind: 'schedule' })).status).toBeGreaterThanOrEqual(401);
+    const user = await signUp();
+    expect((await report(user, { schoolSlug: 'no-such-gym', kind: 'schedule' })).status).toBe(404);
+    expect((await report(user, { schoolSlug: SLUG, kind: 'nonsense' })).status).toBe(422);
+    const res = await report(user, { schoolSlug: SLUG, kind: 'schedule', message: 'Monday open mat moved to 8pm.' });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ status: 'open' });
+    const again = await report(user, { schoolSlug: SLUG, kind: 'price' });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error.name).toBe('REPORT_OPEN');
+  });
+
+  it('an admin sees the report without the reporter id and resolves it once; a read-only admin gets 403', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const board = await (await fetch(`${API}/matfinder/reports?status=open`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const r = board.items.find((x: { schoolSlug: string }) => x.schoolSlug === SLUG);
+    expect(r).toMatchObject({ kind: 'schedule', message: 'Monday open mat moved to 8pm.', status: 'open' });
+    expect(r).not.toHaveProperty('userId');
+    const summary = await (await fetch(`${API}/matfinder/summary`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    expect(summary.reports.open).toBeGreaterThanOrEqual(1);
+    const resolve = (token: string) => fetch(`${API}/matfinder/reports/${r.documentId}/resolve`, json('POST', {}, undefined, token));
+    expect((await resolve(await readOnlyAdmin(jwt))).status).toBe(403);
+    expect((await resolve(jwt)).status).toBe(200);
+    expect((await resolve(jwt)).status).toBe(409);
+  });
+
+  it('two simultaneous reports on one gym make one open report', async () => {
+    const user = await signUp();
+    const slug = 'sample-henderson-grappling-demo';
+    const [a, b] = await Promise.all([report(user, { schoolSlug: slug, kind: 'closed' }), report(user, { schoolSlug: slug, kind: 'closed' })]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+  });
+});
+
+describe('saved gyms', () => {
+  const call = (method: string, path: string, cookie?: string) => fetch(`${API}/api/matfinder${path}`, { method, headers: cookie ? { cookie } : {} });
+
+  it('saves, lists, de-duplicates and removes; signed-out calls are refused; one user never sees another’s list', async () => {
+    expect((await call('GET', '/saved')).status).toBeGreaterThanOrEqual(401);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo')).status).toBeGreaterThanOrEqual(401);
+    const a = await signUp();
+    const b = await signUp();
+    expect((await call('PUT', '/saved/no-such-gym', a)).status).toBe(404);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    const list = await (await call('GET', '/saved', a)).json();
+    expect(list.items.map((g: { slug: string }) => g.slug)).toEqual(['sample-summerlin-bjj-demo']);
+    expect(list.items[0]).toMatchObject({ name: expect.any(String), city: { slug: 'las-vegas' } });
+    expect((await (await call('GET', '/saved', b)).json()).items).toEqual([]);
+    expect((await call('DELETE', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    expect((await (await call('GET', '/saved', a)).json()).items).toEqual([]);
   });
 });

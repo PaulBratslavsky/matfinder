@@ -47,7 +47,7 @@ export const ACTION_COPY: Record<ClaimAction, { button: string; title: string; h
   contacted: {
     button: 'Mark contacted',
     title: 'Mark as contacted',
-    hint: 'You reached the owner and are confirming who they are. Note how (call, email) and what you agreed.',
+    hint: "You reached the owner and are confirming who they are. The account email isn't verified, so confirm by phone. Note how (call, email) and what you agreed.",
     confirm: 'Mark contacted',
     noteRequired: false,
   },

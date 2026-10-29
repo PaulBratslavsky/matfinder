@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "matfinder_reports",
+  "info": {
+    "singularName": "report",
+    "pluralName": "reports",
+    "displayName": "Problem report",
+    "description": "A signed-in user says something on a gym's listing is wrong. Resolved by hand on the MatFinder admin page."
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {
+    "content-manager": { "visible": false },
+    "content-type-builder": { "visible": false }
+  },
+  "attributes": {
+    "schoolDocumentId": { "type": "string", "required": true },
+    "schoolSlug": { "type": "string", "required": true },
+    "schoolName": { "type": "string", "required": true },
+    "userId": { "type": "string", "required": true, "private": true },
+    "kind": { "type": "enumeration", "enum": ["schedule", "price", "closed", "contact", "other"], "required": true },
+    "message": { "type": "text", "maxLength": 1000 },
+    "status": { "type": "enumeration", "enum": ["open", "resolved"], "default": "open", "required": true },
+    "adminNote": { "type": "text", "private": true },
+    "resolvedBy": { "type": "string" },
+    "resolvedAt": { "type": "datetime" }
+  }
+}

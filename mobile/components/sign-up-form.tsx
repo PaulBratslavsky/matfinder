@@ -100,6 +100,11 @@ export function SignUpForm({ redirect }: { redirect: string }) {
               <Text className="text-sm underline underline-offset-4">Sign in</Text>
             </Pressable>
           </Text>
+          <Text className="text-center text-sm">
+            <Pressable onPress={() => router.push('/privacy')}>
+              <Text className="text-sm underline underline-offset-4">How MatFinder uses your data</Text>
+            </Pressable>
+          </Text>
         </CardContent>
       </Card>
     </View>

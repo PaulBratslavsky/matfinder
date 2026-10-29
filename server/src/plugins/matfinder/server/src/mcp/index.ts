@@ -13,10 +13,12 @@ import { findPossibleDuplicates } from './tools/find-possible-duplicates';
 import { upsertKnowledge } from './tools/upsert-knowledge';
 import { findNewGymsArgs, findNewGymsText } from './prompts/find-new-gyms';
 import type { ToolDef } from './types';
+import type { DraftStatus } from '../domain/status';
 
 /**
  * The 11 MatFinder tools. Writes go live: each write tool publishes what it changed (services/publishing.ts; off with
- * MATFINDER_AUTO_PUBLISH=false). No tool unpublishes, deletes or uploads media.
+ * MATFINDER_AUTO_PUBLISH=false). No MatFinder tool unpublishes, deletes or uploads media. A token with Content Manager
+ * permissions also gets Strapi's built-in tools, which can (see the plugin README).
  */
 export const TOOLS: ToolDef[] = [
   listReferenceData,
@@ -67,8 +69,11 @@ export async function registerMcp(strapi: Core.Strapi) {
       resolveOutputSchema: () => t.output,
       createHandler: (s: Core.Strapi) => async ({ args }: { args: any }) => {
         try {
-          const data = await t.run(s, args ?? {});
-          const live = t.publishes ? await s.plugin('matfinder').service('publishing').afterWrite(t.publishes, data.slug as string) : {};
+          // previousStatus is internal (where the document stood before this write); it isn't part of any tool's output.
+          const { previousStatus, ...data } = await t.run(s, args ?? {});
+          const live = t.publishes
+            ? await s.plugin('matfinder').service('publishing').afterWrite(t.publishes, data.slug as string, previousStatus as DraftStatus | undefined)
+            : {};
           return guard({ ...data, ...live }, t.shrinkHint);
         } catch (e) {
           return toErrorResult(e, t.mapPath);

@@ -109,6 +109,13 @@
     "lastVerifiedAt": {
       "type": "date"
     },
+    "notice": {
+      "type": "string",
+      "maxLength": 140
+    },
+    "noticeUntil": {
+      "type": "date"
+    },
     "origin": {
       "type": "enumeration",
       "enum": [
