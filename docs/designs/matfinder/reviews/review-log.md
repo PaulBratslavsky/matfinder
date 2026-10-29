@@ -76,6 +76,15 @@
 - **Reviewer quality:** no wrong findings. The fact-checker checked 28 claims (24 confirmed).
 - **Lessons:** 11–14 below.
 
+## E8: Implementation (2026-10-29)
+- **Branch:** `egm/trust-safety-ux`, 25 commits, not pushed. Every suite passes; the log is
+  `reviews/E8-implementation-log.md`.
+- **How:** five fresh implementing agents, one batch at a time, each with only the spec, the code and a one-page brief.
+  The Elephant reviewed each batch's diff and decided every stop.
+- **What the spec got wrong:** 4 stops, all test or type details (none needed a design change); about 10 small
+  corrections. No step needed a design decision the spec hadn't made: checkpoint C's zero-decision bar held.
+- **Lessons:** 15–16 below.
+
 ## Lessons
 1. **As-is briefs should say who sets each trust field.** A field such as `lastVerifiedAt` reads as a human check in
    the UI, while the code lets an agent write it. Existing-app mode's E1 should ask "who or what writes each field the
@@ -114,4 +123,10 @@
     rule now gets a state table in 06. (C-3, C-9.)
 14. **Before writing "⚠️ not verified", look for the repo's own answer.** The Content Manager routes, the hidden-field
     pattern, the claim status filter and the sign-in input ids were all already in the code or its tests. (C, N9.)
+15. **Specs for apps with a stack navigator should warn about hidden screens.** Expo Router keeps earlier screens
+    mounted, so e2e text checks match hidden copies; two of the four stops came from it. A change spec's e2e lines
+    should default to `filter({ visible: true })` or role-scoped queries. (E8, S21, S24.)
+16. **Copy UI labels and response shapes from the code, never from what they "should" say.** The sign-in button is
+    "Continue", and a `null` session is an empty 204. Both were written from expectation. That's lesson 6 again, now
+    for UI text and HTTP edge cases. (E8, S13, S24.)
 
