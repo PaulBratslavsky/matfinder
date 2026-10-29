@@ -85,6 +85,24 @@
   corrections. No step needed a design decision the spec hadn't made: checkpoint C's zero-decision bar held.
 - **Lessons:** 15–16 below.
 
+## E9: Close the loop (2026-10-29)
+- **Updated:** `04-tech-decisions.md` and `05-tech-requirements.md` now describe `egm/trust-safety-ux` @ `7a4644e`,
+  with fresh citations.
+- **Doc-only findings done here:** B-13 (why the plugin exists, how it couples to the app, the build-artifact
+  dependency; 04 › Reference architecture), B-14 (field types, required flags and inverse sides for every type, who
+  writes each type, the user UID, how controllers read the user, the no-role fallback, a role × action table; 05) and
+  B-15 (a required-or-optional table for every external service; 04). B-16 was already fixed at B.
+- **Found and fixed across the round:** B-1 to B-12 and the owner's UX goal (C2, C3, C5, C6, C12, C13, C15–C19), in
+  25 steps (see E8).
+- **Deferred:** every B nit (N1–N18), the B-13 move of `claim` and `knowledge` into `src/api/`, the B-12 relation
+  migration, and the candidates waiting on an owner decision (C1, C4, C7–C11, C14). The owner items are in 06 ›
+  *Deployment* and *Open questions*.
+- **Check:** one `egm-codebase-details` goldfish read 04–05 against the code. It found 10 wrong facts (mostly test
+  descriptions and UI labels: Lesson 16 again), 3 missing markers, 6 stale citations and 11 omissions. All fixed. It
+  also found a code bug: `calendarIcs` doesn't escape `;` (`mobile/lib/week.ts:143`), now recorded in 05 and left for
+  the owner.
+- **Lessons:** 17 below.
+
 ## Lessons
 1. **As-is briefs should say who sets each trust field.** A field such as `lastVerifiedAt` reads as a human check in
    the UI, while the code lets an agent write it. Existing-app mode's E1 should ask "who or what writes each field the
@@ -129,4 +147,7 @@
 16. **Copy UI labels and response shapes from the code, never from what they "should" say.** The sign-in button is
     "Continue", and a `null` session is an empty 204. Both were written from expectation. That's lesson 6 again, now
     for UI text and HTTP edge cases. (E8, S13, S24.)
-
+17. **E9 needs its own goldfish pass.** The as-built update was written from the diff, and a codebase-details reviewer
+    still found 10 wrong facts, most in the Tests section and in quoted UI labels. Existing-app mode's E9 should send
+    04–05 to `egm-codebase-details` before the docs are committed, and read test names from the test files, not from
+    the spec's step titles. (E9.)
