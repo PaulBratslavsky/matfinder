@@ -43,6 +43,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
         fields: ['question'],
       });
     }
+    const publishing = strapi.plugin('matfinder').service('publishing');
+    const previousStatus = existing ? await publishing.statusOf(KNOWLEDGE_UID, existing.documentId) : undefined;
 
     const data = {
       question,
@@ -55,7 +57,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     const saved = existing
       ? await docs(strapi, KNOWLEDGE_UID).update({ documentId: existing.documentId, status: 'draft', data })
       : await docs(strapi, KNOWLEDGE_UID).create({ data });
-    const live = (await strapi.plugin('matfinder').service('publishing').afterWriteDocument(KNOWLEDGE_UID, saved.documentId)) as AfterWrite;
+    const live = (await publishing.afterWriteDocument(KNOWLEDGE_UID, saved.documentId, previousStatus)) as AfterWrite;
     return { id: saved.documentId, created: !existing, schoolSlug: input.schoolSlug, question, ...live };
   },
 });

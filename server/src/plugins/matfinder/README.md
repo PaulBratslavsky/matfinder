@@ -10,8 +10,10 @@ What it adds:
   `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; always creates, never updates an existing gym; refuses likely duplicates). One,
   `upsert_knowledge`, adds or updates a gym knowledge entry (same gym and question → the same entry).
 - **Agent writes go live.** After each write tool, `services/publishing.ts` publishes what it changed and the result
-  says `status: published`, or `notPublishedBecause` when validation stops it. Set `MATFINDER_AUTO_PUBLISH=false`
-  (plugin config `autoPublish`) to keep agent writes as drafts for review instead. No tool unpublishes or deletes.
+  says `status: published`, or `notPublishedBecause` when validation stops it, except when the draft already had
+  unpublished changes before the write (a person's edits in the admin): then nothing is published, and
+  `notPublishedBecause` says so. Set `MATFINDER_AUTO_PUBLISH=false` (plugin config `autoPublish`) to keep agent writes
+  as drafts for review instead. No tool unpublishes or deletes.
 - **MCP prompt.** `find_new_gyms { city, area? }`: the search, dedupe and add loop for an agent with web search.
 - **Admin page.** *MatFinder* in the menu, with tabs: *Gyms* (every gym, publish status, origin, search and a status
   filter) and *From the web* (every gym the agent added, newest first: live or not, sources, likely duplicates; the tab's

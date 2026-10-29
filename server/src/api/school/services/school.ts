@@ -74,7 +74,7 @@ export type UpsertSchoolInput = {
   lastVerifiedAt?: string | null;
 };
 
-export type UpsertSchoolResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus };
+export type UpsertSchoolResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus; previousStatus?: DraftStatus };
 
 export type ScheduleInput = { day: string; start: string; end: string; classType: string; style: string; notes?: string | null };
 
@@ -236,6 +236,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       write(component, merged, before);
     }
 
+    const previousStatus = existing ? await statusOf(strapi, SCHOOL, existing.documentId) : undefined;
     const doc = existing
       ? changedFields.length
         ? await docs(SCHOOL).update({ documentId: existing.documentId, data })
@@ -247,6 +248,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       created: !existing,
       changedFields,
       status: await statusOf(strapi, SCHOOL, doc.documentId),
+      previousStatus,
     };
   }
 
@@ -464,10 +466,11 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       });
       return strapi.db.transaction(async () => {
         const school = await bySlugOrThrow(SCHOOL, slug, 'school');
+        const previousStatus = await statusOf(strapi, SCHOOL, school.documentId);
         // The schedule-validate middleware checks enums and end > start.
         await docs(SCHOOL).update({ documentId: school.documentId, data: { schedule: rows } });
         const byDay = Object.fromEntries(WEEKDAYS.map((d) => [d, rows.filter((r) => r.day === d).length]));
-        return { slug, sessionCount: rows.length, byDay };
+        return { slug, sessionCount: rows.length, byDay, previousStatus };
       });
     },
 

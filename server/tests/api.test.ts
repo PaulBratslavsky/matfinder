@@ -182,6 +182,28 @@ describe('MCP (curator tools)', () => {
     expect(!!tooLong.body.error || !!tooLong.body.result?.isError).toBe(true);
     expect((await callTool(token, 'get_school_draft', { slug: r.data.slug })).data.contact.website).toBe(`https://${long}`);
   });
+
+  it("doesn't publish over a person's unpublished edits", async (ctx) => {
+    if (!token) return ctx.skip();
+    const jwt = inject('adminJwt');
+    const r = await callTool(token, 'upsert_school', {
+      name: `Integration Person Edit ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas', address: '5 Test Way, Las Vegas, NV', latitude: 36.19, longitude: -115.16,
+    });
+    expect(r.data.status).toBe('published');
+    // A person saves a draft change in the admin without publishing.
+    const save = await fetch(`${API}/content-manager/collection-types/api::school.school/${r.data.documentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ neighborhood: 'Edited by a person' }),
+    });
+    expect(save.status).toBe(200);
+    const u = await callTool(token, 'upsert_school', { slug: r.data.slug, pricing: { visitorsWelcome: true } });
+    expect(u.data).toMatchObject({ status: 'unpublished-changes' });
+    expect(u.data.notPublishedBecause).toMatch(/unpublished changes before this write/);
+    const dir = (await (await get('/api/schools/directory?city=las-vegas')).json()).data.schools;
+    expect(dir.find((s: { slug: string }) => s.slug === r.data.slug)).toMatchObject({ visitorsWelcome: null });
+  });
 });
 
 describe('gyms from the web (MCP)', () => {
