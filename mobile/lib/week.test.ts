@@ -113,9 +113,16 @@ describe('can I train here tonight?', () => {
       nextClass(schedule, at('mon', '21:00')),
     );
     expect(items).toEqual([
-      { ok: false, strong: 'Members only', rest: ': ask before you visit' },
+      { ok: false, strong: 'No drop-ins', rest: ': ask before you visit' },
       { ok: null, strong: 'Drop-in price not listed', rest: ': ask the gym' },
     ]);
+  });
+
+  it('no drop-ins but a free first class: the free class is said once', () => {
+    const items = visitChecklist({ pricing: { ...pricing, visitorsWelcome: false, dropInFee: null, freeTrial: true }, amenities }, null);
+    const free = items.filter((i) => /free/i.test(i.strong));
+    expect(free).toHaveLength(1);
+    expect(free[0].strong).toBe('First class free');
   });
 
   it("doesn't call a gym members-only when it hasn't said", () => {

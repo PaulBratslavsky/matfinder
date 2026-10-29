@@ -21,6 +21,10 @@ const school = (o: Partial<DirectorySchool>): DirectorySchool => ({
   currency: 'USD',
   todaySessions: [],
   claimed: false,
+  lastVerifiedAt: null,
+  addedFromWeb: false,
+  freeTrial: false,
+  notice: null,
   ...o,
 });
 

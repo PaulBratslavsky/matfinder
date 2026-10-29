@@ -129,7 +129,7 @@ export function visitChecklist(school: Pick<SchoolPage, 'pricing' | 'amenities'>
   const a = school.amenities;
   const items: CheckItem[] = [];
   if (p?.visitorsWelcome === true) items.push({ ok: true, strong: 'Visitors welcome' });
-  else if (p?.visitorsWelcome === false) items.push({ ok: false, strong: 'Members only', rest: ': ask before you visit' });
+  else if (p?.visitorsWelcome === false) items.push({ ok: false, strong: 'No drop-ins', rest: ': ask before you visit' });
   else items.push({ ok: null, strong: 'Visitor policy not listed', rest: ': ask the gym' });
 
   if (p?.dropInFee != null) {

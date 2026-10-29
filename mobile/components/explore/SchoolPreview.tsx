@@ -6,7 +6,9 @@ import { useSession } from '@/hooks/useSession';
 import type { DirectorySchool } from '@/lib/api/schools';
 import { dropInLabel, formatDistance, formatDuration, sessionsLeftToday, type SessionState } from '@/lib/explore';
 import { classTypeLabel, formatTime, styleLabel, toMinutes, type CityNow } from '@/lib/time';
+import { sourceLine, verifiedLine } from '@/lib/verified';
 import { makeStyles, useTheme } from '@/theme/ThemeProvider';
+import { NoticeBanner } from '../school/NoticeBanner';
 
 /** The next class today, big: "Open mat · 7:00 pm", when it ends and how long until it starts (or is left). */
 function NextSessionCard({ school, state, now }: { school: DirectorySchool; state: SessionState; now: CityNow }) {
@@ -67,6 +69,7 @@ export function SchoolPreview({
   const session = useSession();
   const kicker = [school.neighborhood, distanceMiles != null ? formatDistance(distanceMiles) : null].filter(Boolean).join(' · ');
   const fee = dropInLabel(school);
+  const verified = verifiedLine(school.lastVerifiedAt, now.localDate);
   return (
     <ScrollView accessibilityLabel={`${school.name} preview`} style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Pressable accessibilityRole="button" accessibilityLabel="All gyms" onPress={onBack} hitSlop={8} style={styles.back}>
@@ -81,17 +84,23 @@ export function SchoolPreview({
         </Text>
         {!!school.affiliation && <Text style={styles.team}>{school.affiliation}</Text>}
       </View>
+      <NoticeBanner notice={school.notice} />
 
       <NextSessionCard school={school} state={state} now={now} />
 
       <View style={styles.chips}>
         {school.claimed && <Chip label="Claimed" variant="live" icon="checkmark-circle" />}
         {school.visitorsWelcome === true && <Chip label="Visitors welcome" variant="solid" />}
-        {school.visitorsWelcome === false && <Chip label="Members only" icon="lock-closed-outline" />}
+        {school.visitorsWelcome === false && <Chip label="No drop-ins" icon="lock-closed-outline" />}
+        {school.freeTrial && <Chip label="Free first class" />}
         {!!fee && <Chip label={fee} />}
         {school.styles.map((s) => (
           <Chip key={s} label={styleLabel(s)} />
         ))}
+      </View>
+      <View style={styles.trust}>
+        <Text style={[styles.trustText, verified.stale && styles.stale]}>{verified.text}</Text>
+        <Text style={styles.trustText}>{sourceLine(school.addedFromWeb)}</Text>
       </View>
 
       <Link href={{ pathname: '/schools/[slug]', params: { slug: school.slug } }} asChild>
@@ -121,6 +130,9 @@ const useStyles = makeStyles((t) => ({
   nextStrong: { ...t.type.bodySemibold, color: t.colors.text },
   leftRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  trust: { gap: 2, marginTop: 10 },
+  trustText: { ...t.type.body, fontSize: 13, color: t.colors.textSecondary },
+  stale: { color: t.colors.warning },
   view: { marginTop: 14 },
   lock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
   lockText: { ...t.type.body, fontSize: 13, color: t.colors.textSecondary },

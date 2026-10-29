@@ -52,6 +52,8 @@ test('explore → filters → preview → View gym → sign up → full gym page
   await expect(card).toBeVisible();
   await expect(card).toContainText(/On now|Next session|No more classes today/);
   await expect(card).toContainText('Visitors welcome');
+  await expect(page.getByText(/^Schedule (verified|not verified yet)/).first()).toBeVisible();
+  await expect(page.getByText(/^Added by (the MatFinder team|MatFinder's AI agent)/).first()).toBeVisible();
   await card.getByText('View gym').click();
 
   // Signed out → sign-in with the redirect → sign up.

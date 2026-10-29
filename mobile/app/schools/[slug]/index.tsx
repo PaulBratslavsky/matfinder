@@ -13,6 +13,7 @@ import { Description } from '@/components/school/Description';
 import { Gallery } from '@/components/school/Gallery';
 import { GetThere } from '@/components/school/GetThere';
 import { NextClassCard } from '@/components/school/NextClassCard';
+import { NoticeBanner } from '@/components/school/NoticeBanner';
 import { PriceTiles } from '@/components/school/PriceTiles';
 import { ProgramChips } from '@/components/school/ProgramChips';
 import { SchoolHeader } from '@/components/school/SchoolHeader';
@@ -114,6 +115,7 @@ export default function SchoolScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}>
         <SchoolTopBar name={s.name} slug={s.slug} onBack={back} />
         <SchoolHeader school={s} today={now?.localDate ?? null} distanceMiles={distance} />
+        <NoticeBanner notice={s.notice} />
         <ClaimLine slug={s.slug} claimed={s.claimed} />
         {!!s.shortDescription && <Text style={styles.short}>{s.shortDescription}</Text>}
         {chatStatus.data?.ready && (
