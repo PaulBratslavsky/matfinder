@@ -84,6 +84,11 @@ test('explore → filters → preview → View gym → sign up → full gym page
   }
   await expect(page.getByText('Directions').first()).toBeVisible();
   await expect(page.getByText('Add to calendar')).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download .ics' }).click()]);
+  expect(download.suggestedFilename()).toMatch(/\.ics$/);
+  const ics = await (await import('node:fs/promises')).readFile((await download.path())!, 'utf8');
+  expect(ics).toContain('BEGIN:VEVENT');
+  expect(ics).toMatch(/DTSTART:\d{8}T\d{6}Z/);
 
   // A reload keeps the session.
   await page.reload();
