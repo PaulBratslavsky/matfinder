@@ -17,7 +17,8 @@ import type { DraftStatus } from '../domain/status';
 
 /**
  * The 11 MatFinder tools. Writes go live: each write tool publishes what it changed (services/publishing.ts; off with
- * MATFINDER_AUTO_PUBLISH=false). No tool unpublishes, deletes or uploads media.
+ * MATFINDER_AUTO_PUBLISH=false). No MatFinder tool unpublishes, deletes or uploads media. A token with Content Manager
+ * permissions also gets Strapi's built-in tools, which can (see the plugin README).
  */
 export const TOOLS: ToolDef[] = [
   listReferenceData,

@@ -135,6 +135,35 @@ describe('MCP (curator tools)', () => {
     expect(body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([...TOOLS].sort());
   });
 
+  it('the curator token lists no built-in content tools (delete, unpublish, discard, media)', async (ctx) => {
+    if (!token) return ctx.skip();
+    const { body } = await mcp(token, 'tools/list');
+    const names: string[] = body.result.tools.map((t: { name: string }) => t.name);
+    expect(names.filter((n) => /^(create|update|delete|publish|unpublish|discard)_|media|upload/i.test(n))).toEqual([]);
+  });
+
+  it('a token that also holds a Content Manager permission sees extra built-in tools (why the curator token must not)', async (ctx) => {
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const res = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({
+        name: `it-wide-${randomBytes(3).toString('hex')}`,
+        lifespan: null,
+        adminPermissions: [
+          ...TOOLS.map((t) => ({ action: `plugin::matfinder.mcp.${t.replace(/_/g, '-')}` })),
+          { action: 'plugin::content-manager.explorer.delete', subject: 'api::school.school' },
+        ],
+      }),
+    });
+    expect(res.status).toBe(201);
+    const wide = (await res.json()).data.accessKey;
+    const { body } = await mcp(wide, 'tools/list');
+    const extra = body.result.tools.map((t: { name: string }) => t.name).filter((n: string) => !TOOLS.includes(n));
+    expect(extra.length).toBeGreaterThan(0);
+  });
+
   it('rejects a call without a token', async () => {
     const { status, body } = await mcp(null, 'tools/list');
     expect(status === 401 || !!body?.error).toBe(true);

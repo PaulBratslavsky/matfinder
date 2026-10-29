@@ -9,11 +9,18 @@ What it adds:
   admin token under Settings → Admin Tokens → Plugins → MatFinder. Two are for gyms found on the web:
   `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; always creates, never updates an existing gym; refuses likely duplicates). One,
   `upsert_knowledge`, adds or updates a gym knowledge entry (same gym and question → the same entry).
+- **The curator token holds only MatFinder actions.** Grant only `plugin::matfinder.mcp.*` (Settings → Admin Tokens →
+  Plugins → MatFinder) and no Content Manager or Media Library permission. With any of those, Strapi's own MCP tools
+  appear for that token too, including delete, unpublish, discard-draft and media-delete tools, and Strapi deletions
+  are permanent. `tests/api.test.ts` checks both: the MatFinder-only token lists exactly the 11 tools, and a token
+  with one Content Manager permission lists more. **Rotating it:** create a new admin token with the same MatFinder
+  actions, put it in the Claude client's MCP config, check `tools/list`, then delete the old token.
 - **Agent writes go live.** After each write tool, `services/publishing.ts` publishes what it changed and the result
   says `status: published`, or `notPublishedBecause` when validation stops it, except when the draft already had
   unpublished changes before the write (a person's edits in the admin): then nothing is published, and
   `notPublishedBecause` says so. Set `MATFINDER_AUTO_PUBLISH=false` (plugin config `autoPublish`) to keep agent writes
-  as drafts for review instead. No tool unpublishes or deletes.
+  as drafts for review instead. No MatFinder tool unpublishes or deletes (Strapi's built-in tools can, for a token with
+  content permissions; see above).
 - **MCP prompt.** `find_new_gyms { city, area? }`: the search, dedupe and add loop for an agent with web search.
 - **Admin page.** *MatFinder* in the menu, with tabs: *Gyms* (every gym, publish status, origin, search and a status
   filter) and *From the web* (every gym the agent added, newest first: live or not, sources, likely duplicates; the tab's
