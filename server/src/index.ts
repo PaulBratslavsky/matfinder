@@ -1,24 +1,9 @@
 import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
 import { backfillSchoolCoordinates } from './lib/coordinates';
+import { createIndexes } from './lib/indexes';
 import { backfillUserRoles, seedPermissions } from './lib/permissions';
 import { seedSampleData } from './seed/sample';
-
-/**
- * `unique: true` in a schema is validation-layer only, and Document Service writes bypass it, so slugs get real
- * indexes. Draft-and-publish keeps a draft and a published row per document with the same slug, so only draft rows
- * are indexed (exactly one per document). City has no draft-and-publish, so it gets a plain index.
- */
-const UNIQUE_INDEXES = [
-  `CREATE UNIQUE INDEX IF NOT EXISTS schools_slug_draft_uq ON schools (slug) WHERE published_at IS NULL`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS instructors_slug_draft_uq ON instructors (slug) WHERE published_at IS NULL`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS affiliations_slug_draft_uq ON affiliations (slug) WHERE published_at IS NULL`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS cities_slug_uq ON cities (slug)`,
-  // Better Auth checks for an existing email and then inserts; the index closes the race between two sign-ups.
-  `CREATE UNIQUE INDEX IF NOT EXISTS ba_user_email_uq ON ba_user (email)`,
-  // Not unique: the nearby query's bounding box (plan 08, M14) on the columns mirrored from `location`.
-  `CREATE INDEX IF NOT EXISTS schools_lat_lng_idx ON schools (latitude, longitude)`,
-];
 
 export default {
   async register({ strapi }: { strapi: Core.Strapi }) {
@@ -26,13 +11,8 @@ export default {
   },
 
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
-    for (const sql of UNIQUE_INDEXES) {
-      try {
-        await strapi.db.connection.raw(sql);
-      } catch (e) {
-        strapi.log.error(`[matfinder] index failed: ${sql}`, e);
-      }
-    }
+    // Unique indexes (lib/indexes.ts). In production a failed one stops the boot.
+    await createIndexes(strapi);
     await seedPermissions(strapi);
     await backfillUserRoles(strapi);
     await backfillSchoolCoordinates(strapi);
