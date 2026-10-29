@@ -71,8 +71,18 @@ describe('public directory', () => {
     expect((await get('/api/schools/directory?city=reno')).status).toBe(404);
   });
 
-  it('serves cities publicly (core find)', async () => {
-    expect((await get('/api/cities')).status).toBe(200);
+  it('serves cities to no one, with or without populate (B-2)', async () => {
+    const cookie = await signUp();
+    for (const path of [
+      '/api/cities',
+      '/api/cities?populate=schools',
+      '/api/cities?populate=*',
+      '/api/cities?populate[schools][populate]=contact',
+      '/api/cities?populate[schools][fields][0]=name&status=draft',
+    ]) {
+      expect((await get(path)).status).toBe(403);
+      expect((await get(path, cookie)).status).toBe(403);
+    }
   });
 });
 

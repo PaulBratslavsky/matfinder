@@ -2,7 +2,7 @@ import type { Core } from '@strapi/strapi';
 import { registerDocumentMiddlewares } from './document-middlewares';
 import { backfillSchoolCoordinates } from './lib/coordinates';
 import { createIndexes } from './lib/indexes';
-import { backfillUserRoles, seedPermissions } from './lib/permissions';
+import { backfillUserRoles, revokePermissions, seedPermissions } from './lib/permissions';
 import { seedSampleData } from './seed/sample';
 
 export default {
@@ -16,6 +16,7 @@ export default {
     // Unique indexes (lib/indexes.ts). In production a failed one stops the boot.
     await createIndexes(strapi);
     await seedPermissions(strapi);
+    await revokePermissions(strapi);
     await backfillUserRoles(strapi);
     await backfillSchoolCoordinates(strapi);
     // Development only: never set SEED_SAMPLE_DATA on Strapi Cloud.
