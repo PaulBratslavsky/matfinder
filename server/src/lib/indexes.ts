@@ -30,6 +30,8 @@ export const indexes = (t: (table: string) => string): IndexSpec[] => [
   // At most one accepted claim (owner) per gym, and one open claim per person per gym (B-5).
   { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_claims_accepted_uq ON ${t('matfinder_claims')} (school_document_id) WHERE status = 'accepted'` },
   { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_claims_open_uq ON ${t('matfinder_claims')} (school_document_id, user_id) WHERE status IN ('pending', 'contacted')` },
+  // One knowledge entry per gym and question (the plugin's knowledgeKey); NULL keys (admin-made, older rows) never collide.
+  { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_knowledge_dedupe_draft_uq ON ${t('matfinder_knowledge')} (dedupe_key) WHERE published_at IS NULL` },
   // Not unique: the nearby query's bounding box (plan 08, M14) on the columns mirrored from `location`.
   { unique: false, sql: `CREATE INDEX IF NOT EXISTS schools_lat_lng_idx ON ${t('schools')} (latitude, longitude)` },
 ];

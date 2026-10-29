@@ -622,6 +622,55 @@ describe('gym chat (scripted model)', () => {
     expect(answer).toContain('Visitors pay the drop-in fee.');
     expect(answer).not.toContain('sign a waiver at the desk');
   });
+
+  it('parallel upserts of the same question make one entry', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ name: `it-knowledge-race-${randomBytes(3).toString('hex')}`, lifespan: null, adminPermissions: [{ action: 'plugin::matfinder.mcp.upsert-knowledge' }] }),
+    });
+    expect(tokenRes.status).toBe(201);
+    const tokenKnowledge = (await tokenRes.json()).data.accessKey;
+    const q = `Is there parking ${randomBytes(3).toString('hex')}?`;
+    const args = { schoolSlug: 'sample-summerlin-bjj-demo', question: q, answer: 'Yes, in the back.', category: 'facilities', sourceUrls: ['https://example.com/p'] };
+    const results = await Promise.all(
+      [q, q, q.toUpperCase(), q].map((question) => callTool(tokenKnowledge, 'upsert_knowledge', { ...args, question })),
+    );
+    expect(results.every((r) => !r.isError)).toBe(true);
+    expect(new Set(results.map((r) => r.data.id)).size).toBe(1);
+    expect(results.filter((r) => r.data.created).length).toBe(1);
+  });
+
+  it('hides dedupeKey from the Content Manager', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const res = await fetch(`${API}/content-manager/content-types/plugin::matfinder.knowledge/configuration`, { headers: { Authorization: `Bearer ${jwt()}` } });
+    expect(res.status).toBe(200);
+    const layouts = JSON.stringify((await res.json()).data.contentType.layouts);
+    expect(layouts).toContain('"question"');
+    expect(layouts).not.toContain('"dedupeKey"');
+  });
+
+  it('re-keys an entry an admin renamed instead of duplicating it', async (ctx) => {
+    if (!jwt()) return ctx.skip();
+    const tokenRes = await fetch(`${API}/admin/admin-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ name: `it-knowledge-rename-${randomBytes(3).toString('hex')}`, lifespan: null, adminPermissions: [{ action: 'plugin::matfinder.mcp.upsert-knowledge' }] }),
+    });
+    const t = (await tokenRes.json()).data.accessKey;
+    const tag = randomBytes(3).toString('hex');
+    const base = { schoolSlug: 'sample-summerlin-bjj-demo', answer: 'Yes.', category: 'facilities', sourceUrls: ['https://example.com/p'] };
+    const first = await callTool(t, 'upsert_knowledge', { ...base, question: `Showers ${tag}?` });
+    const renamed = await fetch(`${API}/content-manager/collection-types/plugin::matfinder.knowledge/${first.data.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({ question: `Changing rooms ${tag}?` }),
+    });
+    expect(renamed.status).toBe(200);
+    const again = await callTool(t, 'upsert_knowledge', { ...base, question: `Changing rooms ${tag}?` });
+    expect(again.data).toMatchObject({ id: first.data.id, created: false });
+  });
 });
 
 describe('nearby gyms (plan 08, M14)', () => {

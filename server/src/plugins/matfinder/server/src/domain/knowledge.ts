@@ -3,6 +3,10 @@ export type KnowledgeEntry = { question: string; answer: string; category: strin
 
 export const KNOWLEDGE_CATEGORIES = ['visiting', 'schedule', 'pricing', 'kids', 'gear', 'facilities', 'policies', 'competition', 'other'] as const;
 
+/** One entry per gym (or `*`, every gym) and question, matched case-insensitively: the unique draft key. */
+export const knowledgeKey = (schoolDocumentId: string | null, question: string) =>
+  `${schoolDocumentId ?? '*'}|${question.trim().normalize('NFKC').toLowerCase()}`;
+
 /** Words that name no topic. */
 const STOPWORDS = new Set(
   (

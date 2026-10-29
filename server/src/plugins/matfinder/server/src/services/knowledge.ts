@@ -1,6 +1,7 @@
 import type { Core } from '@strapi/strapi';
-import type { KNOWLEDGE_CATEGORIES } from '../domain/knowledge';
-import { ToolError } from '../domain/errors';
+import { knowledgeKey, type KNOWLEDGE_CATEGORIES } from '../domain/knowledge';
+import { isUniqueViolation, ToolError } from '../domain/errors';
+import type { DraftStatus } from '../domain/status';
 import type { AfterWrite } from './publishing';
 
 export const KNOWLEDGE_UID = 'plugin::matfinder.knowledge';
@@ -32,19 +33,25 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     }
 
     const question = input.question.trim();
-    let existing: { documentId: string } | null = null;
+    const key = knowledgeKey(school?.documentId ?? null, question);
+    const entries = docs(strapi, KNOWLEDGE_UID);
+    const byKey = () => entries.findFirst({ status: 'draft', filters: { dedupeKey: key }, fields: ['question'] });
+
+    let existing: { documentId: string; question: string } | null = null;
     if (input.id) {
-      existing = await docs(strapi, KNOWLEDGE_UID).findOne({ documentId: input.id, status: 'draft', fields: ['question'] });
+      existing = await entries.findOne({ documentId: input.id, status: 'draft', fields: ['question'] });
       if (!existing) throw new ToolError('NOT_FOUND', `No knowledge entry with id ${input.id}.`, { id: input.id });
     } else {
-      existing = await docs(strapi, KNOWLEDGE_UID).findFirst({
-        status: 'draft',
-        filters: { question: { $eqi: question }, school: school ? { documentId: school.documentId } : { id: { $null: true } } },
-        fields: ['question'],
-      });
+      existing =
+        (await byKey()) ??
+        // The same gym and question, whatever its key: entries without a key yet (seeded, made in the admin, older),
+        // and entries whose question an admin renamed after the key was written. Saving below re-keys the row.
+        (await entries.findFirst({
+          status: 'draft',
+          filters: { question: { $eqi: question }, school: school ? { documentId: school.documentId } : { id: { $null: true } } },
+          fields: ['question'],
+        }));
     }
-    const publishing = strapi.plugin('matfinder').service('publishing');
-    const previousStatus = existing ? await publishing.statusOf(KNOWLEDGE_UID, existing.documentId) : undefined;
 
     const data = {
       question,
@@ -53,11 +60,32 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       school: school ? { set: [school.documentId] } : { set: [] },
       source: input.source,
       sourceUrls: input.sourceUrls?.length ? input.sourceUrls : null,
+      dedupeKey: key,
     };
-    const saved = existing
-      ? await docs(strapi, KNOWLEDGE_UID).update({ documentId: existing.documentId, status: 'draft', data })
-      : await docs(strapi, KNOWLEDGE_UID).create({ data });
+    const save = (target: { documentId: string } | null) =>
+      target ? entries.update({ documentId: target.documentId, status: 'draft', data }) : entries.create({ data });
+
+    const publishing = strapi.plugin('matfinder').service('publishing');
+    let target = existing;
+    let previousStatus: DraftStatus | undefined = target ? await publishing.statusOf(KNOWLEDGE_UID, target.documentId) : undefined;
+    let saved;
+    try {
+      saved = await save(target);
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      // Another entry holds this key: a parallel create won (update it), or an admin renamed that entry's question
+      // after the key was written (a stale key: release it, then retry the same write).
+      const holder = await byKey();
+      if (!holder) throw e;
+      if (holder.question.trim().normalize('NFKC').toLowerCase() === question.normalize('NFKC').toLowerCase()) {
+        target = holder;
+        previousStatus = await publishing.statusOf(KNOWLEDGE_UID, holder.documentId);
+      } else {
+        await strapi.db.query(KNOWLEDGE_UID as any).updateMany({ where: { documentId: holder.documentId, publishedAt: { $null: true } }, data: { dedupeKey: null } });
+      }
+      saved = await save(target);
+    }
     const live = (await publishing.afterWriteDocument(KNOWLEDGE_UID, saved.documentId, previousStatus)) as AfterWrite;
-    return { id: saved.documentId, created: !existing, schoolSlug: input.schoolSlug, question, ...live };
+    return { id: saved.documentId, created: !target, schoolSlug: input.schoolSlug, question, ...live };
   },
 });
