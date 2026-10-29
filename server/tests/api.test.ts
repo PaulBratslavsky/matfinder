@@ -276,6 +276,67 @@ describe('gyms from the web (MCP)', () => {
     const got = await mcp(token, 'prompts/get', { name: 'find_new_gyms', arguments: { city: 'las-vegas', area: 'Summerlin' } });
     expect(got.body.result.messages[0].content.text).toMatch(/Summerlin in las-vegas/);
   });
+
+  it('never overwrites: a confirmed same-name gym gets a new slug and the listed one is unchanged', async (ctx) => {
+    if (!token) return ctx.skip();
+    const before = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    const r = await callTool(token, 'add_gym_from_web', {
+      citySlug: 'las-vegas',
+      name: before.data.name,
+      address: '3 Other Way, Las Vegas, NV',
+      latitude: 36.25,
+      longitude: -115.25,
+      sourceUrls: ['https://example.com/other-summerlin'],
+      confirmNotDuplicate: true,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.data.slug).toBe('sample-summerlin-bjj-demo-las-vegas');
+    const after = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    expect(after.data).toMatchObject({ documentId: before.data.documentId, city: before.data.city, location: before.data.location, updatedAt: before.data.updatedAt });
+  });
+
+  it('a same-named gym in another city is created there; a shared phone across cities is flagged', async (ctx) => {
+    if (!token) return ctx.skip();
+    const hex = randomBytes(3).toString('hex');
+    const citySlug = `it-city-${hex}`;
+    const cityRes = await fetch(`${API}/content-manager/collection-types/api::city.city`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt()}` },
+      body: JSON.stringify({
+        // Far from every other city (Honolulu), so it never becomes the nearby test's "nearest city with gyms".
+        name: `Integration City ${hex}`, slug: citySlug, timezone: 'Pacific/Honolulu',
+        center: { longitude: -157.86, latitude: 21.31, address: 'Integration City', zoom: 10.5, pitch: 0, bearing: 0 },
+      }),
+    });
+    expect([200, 201]).toContain(cityRes.status);
+    const lv = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+
+    const flagged = await callTool(token, 'add_gym_from_web', {
+      citySlug, name: 'Totally Different Grappling', address: '1 Pearl St', latitude: 21.32, longitude: -157.87,
+      phone: lv.data.contact.phone, sourceUrls: ['https://example.com/tdg'],
+    });
+    expect(flagged.isError).toBe(true);
+    expect(flagged.error.error).toBe('DUPLICATE_SUSPECTED');
+    const c = flagged.error.candidates.find((x: { slug: string }) => x.slug === 'sample-summerlin-bjj-demo');
+    expect(c.reasons).toEqual(expect.arrayContaining(['same phone', 'in another city (las-vegas)']));
+
+    const created = await callTool(token, 'add_gym_from_web', {
+      citySlug, name: lv.data.name, address: '2 Pearl St', latitude: 21.33, longitude: -157.88, sourceUrls: ['https://example.com/it-summerlin'],
+    });
+    expect(created.isError).toBe(false);
+    expect(created.data.slug).toBe(`sample-summerlin-bjj-demo-${citySlug}`);
+    const lvAfter = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    expect(lvAfter.data).toMatchObject({ city: { slug: 'las-vegas' }, location: lv.data.location, updatedAt: lv.data.updatedAt });
+  });
+
+  it('upsert_school without a slug creates, never updates a same-named gym', async (ctx) => {
+    if (!token) return ctx.skip();
+    const lv = await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' });
+    const r = await callTool(token, 'upsert_school', { name: lv.data.name, citySlug: 'las-vegas', address: '4 Test Way', latitude: 36.2, longitude: -115.2 });
+    expect(r.data).toMatchObject({ created: true });
+    expect(r.data.slug).not.toBe('sample-summerlin-bjj-demo');
+    expect((await callTool(token, 'get_school_draft', { slug: 'sample-summerlin-bjj-demo' })).data.updatedAt).toBe(lv.data.updatedAt);
+  });
 });
 
 describe('MatFinder plugin admin API', () => {

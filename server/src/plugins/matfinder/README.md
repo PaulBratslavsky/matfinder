@@ -7,7 +7,7 @@ A local Strapi plugin (`server/src/plugins/matfinder`) for curating the director
 What it adds:
 - **MCP tools.** 11 curation tools, each behind its own admin action `plugin::matfinder.mcp.<tool>`. Grant them to an
   admin token under Settings → Admin Tokens → Plugins → MatFinder. Two are for gyms found on the web:
-  `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; refuses likely duplicates). One,
+  `find_possible_duplicates` and `add_gym_from_web` (with its `sourceUrls`; always creates, never updates an existing gym; refuses likely duplicates). One,
   `upsert_knowledge`, adds or updates a gym knowledge entry (same gym and question → the same entry).
 - **Agent writes go live.** After each write tool, `services/publishing.ts` publishes what it changed and the result
   says `status: published`, or `notPublishedBecause` when validation stops it. Set `MATFINDER_AUTO_PUBLISH=false`

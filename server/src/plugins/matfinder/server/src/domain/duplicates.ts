@@ -103,14 +103,14 @@ export function distanceMeters(a: { latitude: number; longitude: number }, b: { 
 const hasCoords = (g: GymSignals): g is GymSignals & { latitude: number; longitude: number } =>
   Number.isFinite(g.latitude) && Number.isFinite(g.longitude);
 
-/** Existing gyms that might be `candidate`, most signals first. */
-export function findDuplicates(candidate: GymSignals, existing: ExistingGym[]): Duplicate[] {
+/** Existing gyms that might be `candidate`, most signals first. `names: false` skips the name signal (other cities). */
+export function findDuplicates(candidate: GymSignals, existing: ExistingGym[], opts: { names?: boolean } = {}): Duplicate[] {
   const phone = phoneKey(candidate.phone);
   const ig = instagramKey(candidate.instagram);
   const out: Duplicate[] = [];
   for (const g of existing) {
     const reasons: string[] = [];
-    if (similarNames(candidate.name, g.name)) reasons.push('similar name');
+    if (opts.names !== false && similarNames(candidate.name, g.name)) reasons.push('similar name');
     if (phone && phone === phoneKey(g.phone)) reasons.push('same phone');
     if (sameSite(candidate.website, g.website)) reasons.push('same website');
     if (ig && ig === instagramKey(g.instagram)) reasons.push('same Instagram');

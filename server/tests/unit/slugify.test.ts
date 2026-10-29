@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugify, slugifyWithFallback } from '../../src/lib/slugify';
+import { pickFreeSlug, slugify, slugifyWithFallback } from '../../src/lib/slugify';
 
 describe('slugify', () => {
   it('lowercases, strips accents and joins words with hyphens', () => {
@@ -29,5 +29,23 @@ describe('slugifyWithFallback', () => {
     expect(a).toMatch(/^school-[a-z0-9]{6}$/);
     expect(b).toMatch(/^school-[a-z0-9]{6}$/);
     expect(a).not.toBe(b);
+  });
+});
+
+describe('pickFreeSlug', () => {
+  it('returns the base when it is free', () => {
+    expect(pickFreeSlug('gracie-barra', 'henderson', new Set())).toBe('gracie-barra');
+  });
+
+  it('adds the city when the base is taken', () => {
+    expect(pickFreeSlug('gracie-barra', 'henderson', new Set(['gracie-barra']))).toBe('gracie-barra-henderson');
+  });
+
+  it('then counts up from -2', () => {
+    expect(pickFreeSlug('gracie-barra', 'henderson', new Set(['gracie-barra', 'gracie-barra-henderson']))).toBe('gracie-barra-henderson-2');
+  });
+
+  it("doesn't add the city twice when the base already ends with it", () => {
+    expect(pickFreeSlug('summerlin-bjj-las-vegas', 'las-vegas', new Set(['summerlin-bjj-las-vegas']))).toBe('summerlin-bjj-las-vegas-2');
   });
 });

@@ -10,7 +10,7 @@ import { draftStatus, pendingDrafts, type DraftStatus, type PendingDraft } from 
 import { isUniqueViolation, ToolError } from '../../../lib/errors';
 import { geocodeAddress, type MapBoxValue } from '../../../lib/geocode';
 import { normalizeInstagram, normalizeWebsite } from '../../../document-middlewares/normalize-contact';
-import { slugifyWithFallback } from '../../../lib/slugify';
+import { pickFreeSlug, slugifyWithFallback } from '../../../lib/slugify';
 import { statusOf } from '../../../lib/upsert';
 import { cityNow, toHHmm, toMinutes, toStoredTime, WEEKDAYS, type CityNow, type Weekday } from '../../../lib/time';
 import { hasCoords, nextSessionToday, num, toDirectoryItem, toTodaySessions, deriveStyles, derivePrograms, type Session } from '../../../lib/directory';
@@ -82,6 +82,9 @@ const PENDING_TYPES = { school: SCHOOL, instructor: INSTRUCTOR, affiliation: AFF
 export type PendingType = keyof typeof PENDING_TYPES;
 
 const invalid = (message: string, path: (string | number)[]) => new ToolError('VALIDATION_ERROR', message, { path });
+
+/** Thrown inside a create-only write when the chosen slug was taken meanwhile; the caller picks another. */
+class SlugTaken extends Error {}
 
 export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.Strapi }) => {
   /** Of these gyms, the ones with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
@@ -156,7 +159,17 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
     return geocoded;
   }
 
-  async function upsertOnce(input: UpsertSchoolInput, geocoded: MapBoxValue | undefined): Promise<UpsertSchoolResult> {
+  /** Every draft slug starting with `base`, in any city: the set pickFreeSlug avoids. */
+  async function takenSlugs(base: string): Promise<Set<string>> {
+    const rows = await docs(SCHOOL).findMany({ status: 'draft', filters: { slug: { $startsWith: base } }, fields: ['slug'], limit: 10000 });
+    return new Set(rows.map((r: any) => r.slug as string));
+  }
+
+  async function upsertOnce(
+    input: UpsertSchoolInput,
+    geocoded: MapBoxValue | undefined,
+    opts: { createOnly?: boolean; extraOnCreate?: Record<string, unknown> } = {},
+  ): Promise<UpsertSchoolResult> {
     const slug = input.slug ?? (input.name ? slugifyWithFallback(input.name, 'school') : undefined);
     if (!slug) throw invalid('send the slug of an existing school, or a name to create one', ['name']);
 
@@ -172,6 +185,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         amenities: true,
       },
     });
+    if (existing && opts.createOnly) throw new SlugTaken(slug);
     if (!existing) {
       // city is required at the service level (relations can't be required in the schema).
       for (const field of ['name', 'citySlug', 'address'] as const) {
@@ -226,7 +240,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       ? changedFields.length
         ? await docs(SCHOOL).update({ documentId: existing.documentId, data })
         : existing
-      : await docs(SCHOOL).create({ data: { ...data, slug } });
+      : await docs(SCHOOL).create({ data: { ...data, ...(opts.extraOnCreate ?? {}), slug } });
     return {
       documentId: doc.documentId,
       slug: doc.slug,
@@ -405,6 +419,28 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         if (isUniqueViolation(e)) return run();
         throw e;
       }
+    },
+
+    /**
+     * Create a NEW school draft, never update one (add_gym_from_web, and upsert_school without a slug). The slug is
+     * the name's, or the first free variant (pickFreeSlug), checked across every city. `extraOnCreate` is written in
+     * the same create (add_gym_from_web's provenance). Each attempt is its own transaction, so a unique violation
+     * (a concurrent create took the slug) is retried with a fresh slug, also on Postgres.
+     */
+    async createDraft(input: UpsertSchoolInput, extraOnCreate: Record<string, unknown> = {}): Promise<UpsertSchoolResult> {
+      if (!input.name) throw invalid('required to create a school', ['name']);
+      const { slug: _ignored, ...rest } = input;
+      const geocoded = await geocodeIfNeeded(rest);
+      const base = slugifyWithFallback(input.name, 'school');
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const slug = pickFreeSlug(base, input.citySlug ?? 'city', await takenSlugs(base));
+        try {
+          return await strapi.db.transaction(() => upsertOnce({ ...rest, slug }, geocoded, { createOnly: true, extraOnCreate }));
+        } catch (e) {
+          if (!(e instanceof SlugTaken) && !isUniqueViolation(e)) throw e;
+        }
+      }
+      throw invalid('could not find a free slug for this name; try again', ['name']);
     },
 
     /**

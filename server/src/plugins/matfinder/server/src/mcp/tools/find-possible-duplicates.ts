@@ -23,7 +23,7 @@ export const findPossibleDuplicates: ToolDef = {
   name: 'find_possible_duplicates',
   title: 'Find possible duplicates',
   description:
-    "Check whether a gym you found on the web is already listed, before adding it. Matches on a similar name in the same city, the same phone, website or Instagram, or being within 150 m. Send everything you know. An empty list means no likely duplicate; otherwise compare with get_school_draft before deciding.",
+    "Check whether a gym you found on the web is already listed, before adding it. Matches on a similar name in the same city, or, in any city, the same phone, website or Instagram, or being within 150 m (a match in another city says so in its reasons). Send everything you know. An empty list means no likely duplicate; otherwise compare with get_school_draft before deciding.",
   write: false,
   input: z.object(lookupInput),
   output: z.object({ candidates: z.array(candidate), distanceChecked: z.boolean().describe('False when the address could not be located') }),

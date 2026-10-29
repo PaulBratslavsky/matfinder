@@ -38,14 +38,15 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     return city;
   }
 
-  /** Every gym in a city (draft versions), as duplicate-check signals. */
-  async function cityGyms(citySlug: string): Promise<ExistingGym[]> {
+  type GymWithCity = ExistingGym & { citySlug: string | null };
+
+  /** Every gym (draft versions) with its city, as duplicate-check signals. */
+  async function allGyms(): Promise<GymWithCity[]> {
     const rows = await docs(strapi, SCHOOL).findMany({
       status: 'draft',
-      filters: { city: { slug: citySlug } },
       fields: ['slug', 'name', 'location'],
-      populate: { contact: true },
-      limit: 2000,
+      populate: { contact: true, city: { fields: ['slug'] } },
+      limit: 10000,
     });
     return rows.map((r: any) => ({
       documentId: r.documentId,
@@ -56,7 +57,13 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
       instagram: r.contact?.instagram,
       latitude: r.location?.latitude,
       longitude: r.location?.longitude,
+      citySlug: r.city?.slug ?? null,
     }));
+  }
+
+  /** Every gym in a city (draft versions), as duplicate-check signals. */
+  async function cityGyms(citySlug: string): Promise<ExistingGym[]> {
+    return (await allGyms()).filter((g) => g.citySlug === citySlug);
   }
 
   /** Coordinates for the distance check: the ones given, else a geocode of the address; null if neither works. */
@@ -72,10 +79,22 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     }
   }
 
+  /**
+   * Same city: every signal. Other cities: phone, website, Instagram and distance only, since chains share names
+   * across cities (and add_gym_from_web never overwrites, so a shared name is harmless).
+   */
   async function possibleDuplicates(q: DuplicateQuery) {
     const city = await cityOrThrow(q.citySlug);
     const at = await locate(q, city.center);
-    const candidates = findDuplicates({ ...q, latitude: at?.latitude, longitude: at?.longitude }, await cityGyms(q.citySlug));
+    const signals = { ...q, latitude: at?.latitude, longitude: at?.longitude };
+    const gyms = await allGyms();
+    const sameCity = findDuplicates(signals, gyms.filter((g) => g.citySlug === q.citySlug));
+    const cityOf = new Map(gyms.map((g) => [g.documentId, g.citySlug]));
+    const elsewhere = findDuplicates(signals, gyms.filter((g) => g.citySlug !== q.citySlug), { names: false }).map((d) => ({
+      ...d,
+      reasons: [...d.reasons, `in another city (${cityOf.get(d.documentId) ?? 'none'})`],
+    }));
+    const candidates = [...sameCity, ...elsewhere].sort((a, b) => b.reasons.length - a.reasons.length || a.name.localeCompare(b.name));
     return { candidates, distanceChecked: !!at, at };
   }
 
@@ -93,8 +112,9 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     /**
-     * Adds a gym found on the web with its sources (as a draft; the MCP tool then publishes it, see publishing.ts).
-     * Refuses a likely duplicate (DUPLICATE_SUSPECTED, with the candidates) unless the agent confirms it's a different gym.
+     * Adds a NEW gym found on the web with its sources (never updates an existing one; a taken name gets a free slug
+     * such as `name-city`). Refuses a likely duplicate (DUPLICATE_SUSPECTED, with the candidates) unless the agent
+     * confirms it's a different gym.
      */
     async addGymFromWeb(input: WebGymInput) {
       const { candidates, at } = await possibleDuplicates(input);
@@ -109,22 +129,20 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
       const contact = Object.fromEntries(
         Object.entries({ phone: input.phone, website: input.website, instagram: input.instagram, email: input.email }).filter(([, v]) => v),
       );
-      return strapi.db.transaction(async () => {
-        const created = await schools(strapi).upsertDraft({
+      // Always a new gym (never an update of a same-named one), with its provenance in the same write.
+      const created = await schools(strapi).createDraft(
+        {
           name: input.name,
           citySlug: input.citySlug,
           address: input.address,
-          // Geocoded once above; passing the coordinates saves upsertDraft a second lookup.
+          // Geocoded once above; passing the coordinates saves createDraft a second lookup.
           ...(at ? { latitude: at.latitude, longitude: at.longitude } : {}),
           ...(input.shortDescription ? { shortDescription: input.shortDescription } : {}),
           ...(Object.keys(contact).length ? { contact } : {}),
-        });
-        await docs(strapi, SCHOOL).update({
-          documentId: created.documentId,
-          data: { origin: 'web-agent', sourceUrls, discoveredAt: new Date().toISOString() },
-        });
-        return { documentId: created.documentId, slug: created.slug, sourceUrls };
-      });
+        },
+        { origin: 'web-agent', sourceUrls, discoveredAt: new Date().toISOString() },
+      );
+      return { documentId: created.documentId, slug: created.slug, sourceUrls };
     },
 
     /**

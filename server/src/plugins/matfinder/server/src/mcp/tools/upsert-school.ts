@@ -5,7 +5,7 @@ export const upsertSchool: ToolDef = {
   name: 'upsert_school',
   title: 'Create or update a school',
   description:
-    'Create or partially update a BJJ school listing. The change is published right away (status in the result; notPublishedBecause says why if it could not be, e.g. no location). Only send the fields you want to change; pricing, contact and amenities are merged field by field. Call find_schools first to check whether the school already exists. Without a slug (or with an unknown one) it creates a school, which needs name, citySlug and address. Send the street address and the server geocodes it; only send latitude/longitude if you have exact coordinates. descriptionText is plain text, paragraphs separated by blank lines. headInstructorSlugs replaces the whole ordered list (create instructors with upsert_instructor first). Use set_school_schedule for the weekly schedule.',
+    'Create or partially update a BJJ school listing. The change is published right away (status in the result; notPublishedBecause says why if it could not be, e.g. no location). Only send the fields you want to change; pricing, contact and amenities are merged field by field. Call find_schools first to check whether the school already exists. Without a slug it always creates a new school (if the name is taken, the slug gets the city added); with an unknown slug it creates one with that slug. Creating needs name, citySlug and address. Send the street address and the server geocodes it; only send latitude/longitude if you have exact coordinates. descriptionText is plain text, paragraphs separated by blank lines. headInstructorSlugs replaces the whole ordered list (create instructors with upsert_instructor first). Use set_school_schedule for the weekly schedule.',
   write: true,
   publishes: 'api::school.school',
   input: z.object({
@@ -54,5 +54,5 @@ export const upsertSchool: ToolDef = {
   }),
   output: upsertOutput,
   shrinkHint: 'The result is too large.',
-  run: (strapi, args) => schoolService(strapi).upsertDraft(args),
+  run: (strapi, args) => (args.slug ? schoolService(strapi).upsertDraft(args) : schoolService(strapi).createDraft(args)),
 };
