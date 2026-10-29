@@ -1,4 +1,4 @@
-import { date, slug, str, upsertOutput, z } from '../schemas';
+import { date, slug, str, upsertOutput, urlText, z } from '../schemas';
 import { schoolService, type ToolDef } from '../types';
 
 export const upsertSchool: ToolDef = {
@@ -35,7 +35,7 @@ export const upsertSchool: ToolDef = {
       .partial()
       .optional(),
     contact: z
-      .object({ phone: str.nullable(), email: z.string().email().max(255).nullable(), website: str.nullable(), instagram: str.nullable() })
+      .object({ phone: str.nullable(), email: z.string().email().max(255).nullable(), website: urlText.nullable(), instagram: urlText.nullable() })
       .partial()
       .optional(),
     amenities: z

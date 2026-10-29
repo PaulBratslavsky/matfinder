@@ -162,6 +162,26 @@ describe('MCP (curator tools)', () => {
     expect(r.isError).toBe(true);
     expect(r.error).toMatchObject({ error: 'VALIDATION_ERROR', path: ['sessions', 0, 'end'] });
   });
+
+  it('stores a website longer than 255 characters, and refuses one over 500', async (ctx) => {
+    if (!token) return ctx.skip();
+    const long = `example.com/${'a'.repeat(380)}`; // 392 characters; 400 once https:// is added
+    const r = await callTool(token, 'upsert_school', {
+      name: `Integration Long URL ${randomBytes(3).toString('hex')} (Demo)`,
+      citySlug: 'las-vegas',
+      address: '2 Test Way, Las Vegas, NV',
+      latitude: 36.18,
+      longitude: -115.15,
+      contact: { website: long },
+    });
+    expect(r.isError).toBe(false);
+    const draft = await callTool(token, 'get_school_draft', { slug: r.data.slug });
+    expect(draft.data.contact.website).toBe(`https://${long}`);
+
+    const tooLong = await mcp(token, 'tools/call', { name: 'upsert_school', arguments: { slug: r.data.slug, contact: { website: `example.com/${'a'.repeat(500)}` } } });
+    expect(!!tooLong.body.error || !!tooLong.body.result?.isError).toBe(true);
+    expect((await callTool(token, 'get_school_draft', { slug: r.data.slug })).data.contact.website).toBe(`https://${long}`);
+  });
 });
 
 describe('gyms from the web (MCP)', () => {

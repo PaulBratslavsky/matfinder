@@ -1,4 +1,4 @@
-import { slug, str, z } from '../schemas';
+import { slug, str, urlText, z } from '../schemas';
 import type { ToolDef } from '../types';
 
 export const lookupInput = {
@@ -8,8 +8,8 @@ export const lookupInput = {
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   phone: str.optional(),
-  website: str.optional(),
-  instagram: str.optional().describe('@handle or instagram.com URL'),
+  website: urlText.optional(),
+  instagram: urlText.optional().describe('@handle or instagram.com URL'),
 };
 
 export const candidate = z.object({

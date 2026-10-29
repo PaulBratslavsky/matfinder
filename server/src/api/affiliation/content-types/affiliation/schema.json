@@ -6,7 +6,7 @@
   "attributes": {
     "name": { "type": "string", "required": true, "maxLength": 80 },
     "slug": { "type": "uid", "targetField": "name", "required": true },
-    "website": { "type": "string" },
+    "website": { "type": "text" },
     "logo": { "type": "media", "multiple": false, "allowedTypes": ["images"] },
     "schools": { "type": "relation", "relation": "oneToMany", "target": "api::school.school", "mappedBy": "affiliation" }
   }
