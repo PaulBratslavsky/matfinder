@@ -823,3 +823,40 @@ describe('nearby gyms (plan 08, M14)', () => {
     expect(layouts).not.toContain('"longitude"');
   });
 });
+
+describe('account deletion (C15)', () => {
+  const SLUG = 'sample-henderson-grappling-demo';
+  const post = (path: string, body: unknown, cookie?: string) =>
+    fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: WEB_ORIGIN, ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+
+  it('needs the password, removes the account and its sessions, and clears its claims', async (ctx) => {
+    const email = `it-del-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Delete Me', email, password });
+    expect(up.status).toBe(200);
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    expect((await post('/api/matfinder/claims', { schoolSlug: SLUG, role: 'manager', phone: '702-555-0142', message: 'Front desk.' }, cookie)).status).toBe(201);
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    const boardOf = async (status: string) =>
+      (await (await fetch(`${API}/matfinder/claims?status=${status}`, { headers: { Authorization: `Bearer ${jwt}` } })).json()).items as { documentId: string; email: string }[];
+    const claimId = (await boardOf('pending')).find((x) => x.email === email)!.documentId;
+
+    expect((await post('/api/auth/delete-user', {}, cookie)).status).toBe(400); // no password
+    const wrong = await post('/api/auth/delete-user', { password: 'not-the-password' }, cookie);
+    expect(wrong.status).toBe(400);
+    expect((await wrong.json()).code).toBe('INVALID_PASSWORD');
+    const done = await post('/api/auth/delete-user', { password }, cookie);
+    expect(done.status).toBe(200);
+    expect(await done.json()).toEqual({ success: true, message: 'User deleted' });
+
+    // No session: Better Auth answers JSON null, which the Strapi plugin relays as a Koa null body, so an empty 204.
+    const after = await get('/api/auth/get-session', cookie);
+    expect([after.status, await after.text()]).toEqual([204, '']);
+    expect((await post('/api/auth/sign-in/email', { email, password })).status).toBe(401);
+
+    const board = await boardOf('withdrawn');
+    expect(board.find((x) => x.documentId === claimId)).toMatchObject({ name: 'Deleted account', email: 'deleted@matfinder.invalid', phone: '—', message: null, status: 'withdrawn' });
+    expect(JSON.stringify(board)).not.toContain(email);
+  });
+});

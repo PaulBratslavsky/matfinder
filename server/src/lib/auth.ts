@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { jwt } from 'better-auth/plugins';
 import { expo } from '@better-auth/expo';
 import { dash } from '@better-auth/infra';
@@ -15,6 +16,25 @@ export const auth = betterAuth({
   trustedOrigins: [...webOrigins, 'matfinder://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://'])],
   emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 8 },
   session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 }, // 30-day sliding session
+  // Account deletion (C15): always with the password, and the user's claims are cleared first (see forgetUser).
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => {
+        const row = await strapi.documents('plugin::better-auth.user' as any).findFirst({ filters: { id: Number(user.id) }, fields: ['documentId'] });
+        if (!row?.documentId) return;
+        const { claims } = await strapi.plugin('matfinder').service('claims').forgetUser(row.documentId);
+        strapi.log.info(`[matfinder] account deleted: ${claims} claim(s) cleared`);
+      },
+    },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/delete-user' && !(ctx.body as { password?: unknown } | undefined)?.password) {
+        throw new APIError('BAD_REQUEST', { message: 'Enter your password to delete your account.' });
+      }
+    }),
+  },
   plugins: [
     expo(),
     // Required by the admin's Better Auth dashboard (plugin-better-auth-dashboard). dash() reports to this Strapi

@@ -208,6 +208,34 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     },
 
     /**
+     * The user deleted their account (Better Auth's beforeDelete): their open claims are withdrawn, and every claim of
+     * theirs keeps its gym and decision but loses the claimant's name, email, phone and message. Accepted claims stay
+     * accepted until an admin removes the owner. Uses the query engine so the placeholders skip the email/required
+     * validation of the document service.
+     */
+    async forgetUser(userDocumentId: string): Promise<{ claims: number }> {
+      const q = strapi.db.query(CLAIM as any);
+      const now = new Date().toISOString();
+      return strapi.db.transaction(async () => {
+        const rows = await q.findMany({ where: { userId: userDocumentId }, select: ['id', 'status', 'adminNote'] });
+        for (const r of rows) {
+          await q.update({
+            where: { id: r.id },
+            data: {
+              ...(OPEN.includes(r.status) ? { status: 'withdrawn', decidedAt: now } : {}),
+              name: 'Deleted account',
+              email: 'deleted@matfinder.invalid',
+              phone: '—',
+              message: null,
+              adminNote: [r.adminNote, `The claimant deleted their account on ${now.slice(0, 10)}.`].filter(Boolean).join('\n'),
+            },
+          });
+        }
+        return { claims: rows.length };
+      });
+    },
+
+    /**
      * Run before matfinder_claims_open_uq is created (bootstrap): of several open claims by one person on one gym,
      * keep the newest and close the rest as rejected, with a note. Returns how many it closed. Safe on every boot.
      * Two accepted claims on one gym are NOT fixed here: a person decides, so the index fails and B-7's rule applies.
