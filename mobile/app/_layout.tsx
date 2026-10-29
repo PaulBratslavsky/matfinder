@@ -51,6 +51,7 @@ function ThemedStack() {
         {/* "Ask about this gym": a sheet over the gym page on iOS and Android, a page on the web. */}
         <Stack.Screen name="schools/[slug]/ask" options={{ title: 'Ask about this gym', presentation: Platform.OS === 'web' ? 'card' : 'modal' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
+        <Stack.Screen name="privacy" options={{ title: 'Privacy' }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
         <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />
         <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
