@@ -11,6 +11,8 @@ export default {
   },
 
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
+    // Existing duplicate open claims would make matfinder_claims_open_uq fail (B-5).
+    await strapi.plugin('matfinder').service('claims').closeDuplicateOpenClaims();
     // Unique indexes (lib/indexes.ts). In production a failed one stops the boot.
     await createIndexes(strapi);
     await seedPermissions(strapi);

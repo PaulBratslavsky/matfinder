@@ -399,6 +399,30 @@ describe('gym claims', () => {
     expect((await act(jwt, c.documentId, 'remove-owner', 'Owner sold the gym.')).status).toBe(200);
     expect(await claimed()).toBe(false);
   });
+
+  it('a double tap makes one claim, and two admins accepting rivals makes one owner (B-5)', async (ctx) => {
+    const RACE = 'sample-henderson-grappling-demo';
+    const body = { schoolSlug: RACE, role: 'owner', phone: '702-555-0177' };
+    const tapper = await signUp();
+    const taps = await Promise.all([claim(tapper, body), claim(tapper, body)]);
+    expect(taps.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect((await taps.find((r) => r.status === 409)!.json()).error.name).toBe('CLAIM_OPEN');
+
+    const jwt = inject('adminJwt');
+    if (!jwt) return ctx.skip();
+    expect((await claim(await signUp(), { ...body, role: 'manager' })).status).toBe(201);
+    const board = await (await fetch(`${API}/matfinder/claims?status=pending`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const rivals = board.items.filter((x: { schoolSlug: string }) => x.schoolSlug === RACE);
+    expect(rivals).toHaveLength(2);
+    const accepts = await Promise.all(rivals.map((c: { documentId: string }) => act(jwt, c.documentId, 'accept')));
+    expect(accepts.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(['ALREADY_CLAIMED', 'INVALID_STATE']).toContain((await accepts.find((r) => r.status === 409)!.json()).error.name);
+    const accepted = await (await fetch(`${API}/matfinder/claims?status=accepted`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
+    const owners = accepted.items.filter((x: { schoolSlug: string }) => x.schoolSlug === RACE);
+    expect(owners).toHaveLength(1);
+    // Leave the gym unclaimed for later tests.
+    expect((await act(jwt, owners[0].documentId, 'remove-owner', 'Integration test cleanup.')).status).toBe(200);
+  });
 });
 
 describe('gym chat (scripted model)', () => {
