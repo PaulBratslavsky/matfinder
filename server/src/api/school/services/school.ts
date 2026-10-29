@@ -84,9 +84,9 @@ export type PendingType = keyof typeof PENDING_TYPES;
 const invalid = (message: string, path: (string | number)[]) => new ToolError('VALIDATION_ERROR', message, { path });
 
 export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.Strapi }) => {
-  /** Gyms with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
-  const claimedSchoolIds = async (): Promise<Set<string>> =>
-    ((await (strapi.plugin('matfinder')?.service('claims') as any)?.claimedSchoolIds()) as Set<string> | undefined) ?? new Set<string>();
+  /** Of these gyms, the ones with an accepted owner claim (the MatFinder plugin); none when the plugin isn't loaded. */
+  const claimedAmong = async (schoolDocumentIds: string[]): Promise<Set<string>> =>
+    ((await (strapi.plugin('matfinder')?.service('claims') as any)?.claimedAmong(schoolDocumentIds)) as Set<string> | undefined) ?? new Set<string>();
 
   // The generated types don't know these custom query shapes; the payloads below are built field by field.
   const docs = (uid: string) => strapi.documents(uid as any) as any;
@@ -245,13 +245,13 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       });
       if (!city) return null;
       const now = cityNow(city.timezone);
-      const claimed = await claimedSchoolIds();
       const schools = await findAllPublished({
         filters: { city: { slug: citySlug } },
         fields: DIRECTORY_FIELDS_QUERY,
         populate: DIRECTORY_POPULATE,
         sort: 'name:asc',
       });
+      const claimed = await claimedAmong(schools.map((s) => s.documentId));
       return {
         city: {
           slug: city.slug,
@@ -276,7 +276,6 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
      */
     async getNearby(center: Coords, radius: number) {
       const box = boundingBox(center, radius);
-      const claimed = await claimedSchoolIds();
       const rows = await findAllPublished({
         filters: { latitude: { $between: [box.minLat, box.maxLat] }, longitude: { $between: [box.minLng, box.maxLng] } },
         fields: DIRECTORY_FIELDS_QUERY,
@@ -293,6 +292,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
       }
       inRange.sort((a, b) => a.miles - b.miles);
       const shown = inRange.slice(0, MAX_NEARBY);
+      const claimed = await claimedAmong(shown.map(({ s }) => s.documentId));
 
       const nowByCity = new Map<string, CityNow>();
       const cities: Record<string, { name: string; state: string | null; timezone: string; localDate: string; weekday: Weekday }> = {};
@@ -336,7 +336,7 @@ export default factories.createCoreService(SCHOOL, ({ strapi }: { strapi: Core.S
         },
       });
       if (!s) return null;
-      const claimed = (await claimedSchoolIds()).has(s.documentId);
+      const claimed = (await claimedAmong([s.documentId])).has(s.documentId);
       const now = s.city?.timezone ? cityNow(s.city.timezone) : null;
       const today = now ? toTodaySessions(s.schedule, now) : [];
       const dayIndex = (d: string) => WEEKDAYS.indexOf(d as Weekday);

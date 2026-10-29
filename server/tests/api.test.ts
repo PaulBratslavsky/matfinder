@@ -361,6 +361,8 @@ describe('gym claims', () => {
     expect((await again.json()).error.name).toBe('CLAIM_OPEN');
     const mine = await (await get(`/api/matfinder/claims/mine?school=${SLUG}`, owner)).json();
     expect(mine.status).toBe('pending');
+    // Unknown gym: no claim, not an error.
+    expect(await (await get('/api/matfinder/claims/mine?school=no-such-gym', owner)).json()).toEqual({ status: null, createdAt: null });
     expect(await claimed()).toBe(false);
   });
 

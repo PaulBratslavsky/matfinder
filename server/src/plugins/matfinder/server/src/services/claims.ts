@@ -81,9 +81,16 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
       return ok({ status: 'pending' as ClaimStatus });
     },
 
-    /** The user's latest claim on a gym, for the app ("Your claim is being reviewed"). */
+    /** The user's latest claim on a gym, for the app ("Your claim is being reviewed"). Keyed by the gym's
+     *  documentId, so the claim still shows after the gym's slug changes (B-12). */
     async mine(user: ClaimUser, schoolSlug: string) {
-      const latest = await claims().findFirst({ filters: { schoolSlug, userId: user.documentId }, sort: 'createdAt:desc', fields: ['status', 'createdAt'] });
+      const school = await docs(strapi, SCHOOL).findFirst({ status: 'published', filters: { slug: schoolSlug }, fields: ['slug'] });
+      if (!school) return { status: null, createdAt: null };
+      const latest = await claims().findFirst({
+        filters: { schoolDocumentId: school.documentId, userId: user.documentId },
+        sort: 'createdAt:desc',
+        fields: ['status', 'createdAt'],
+      });
       return { status: (latest?.status as ClaimStatus) ?? null, createdAt: latest?.createdAt ?? null };
     },
 
@@ -164,10 +171,21 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
       }
     },
 
-    /** documentIds of gyms with an accepted claim: the public `claimed` flag. */
-    async claimedSchoolIds(): Promise<Set<string>> {
-      const rows = await claims().findMany({ filters: { status: 'accepted' }, fields: ['schoolDocumentId'], limit: 10000 });
-      return new Set(rows.map((r: any) => r.schoolDocumentId));
+    /** Of these gyms, the ones with an accepted claim: the public `claimed` flag. At most one accepted claim per
+     *  gym (matfinder_claims_accepted_uq), so each chunk needs at most chunk.length rows. */
+    async claimedAmong(schoolDocumentIds: string[]): Promise<Set<string>> {
+      const out = new Set<string>();
+      const ids = Array.from(new Set(schoolDocumentIds));
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500);
+        const rows = await claims().findMany({
+          filters: { schoolDocumentId: { $in: chunk }, status: 'accepted' },
+          fields: ['schoolDocumentId'],
+          limit: chunk.length,
+        });
+        for (const r of rows) out.add(r.schoolDocumentId);
+      }
+      return out;
     },
 
     /** Per gym, for the admin Gyms table: the owner (if accepted) and how many claims are open. */
