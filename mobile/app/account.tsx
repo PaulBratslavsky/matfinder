@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { ActionButton, Card, Label, RankBar, SectionTitle } from '@/components/kit';
+import { useSaved } from '@/hooks/useSaved';
 import { useSession } from '@/hooks/useSession';
 import { authClient } from '@/lib/auth-client';
 import { makeStyles, useTheme, type ThemePreference } from '@/theme/ThemeProvider';
@@ -37,6 +38,27 @@ function AppearancePicker() {
   );
 }
 
+function SavedGyms() {
+  const styles = useStyles();
+  const saved = useSaved();
+  const items = saved.data?.items ?? [];
+  return (
+    <>
+      <SectionTitle>Saved gyms</SectionTitle>
+      {saved.isPending ? null : items.length === 0 ? (
+        <Text style={styles.hint}>Tap the bookmark on a gym&apos;s page to save it here.</Text>
+      ) : (
+        items.map((g) => (
+          <Pressable key={g.slug} accessibilityRole="link" accessibilityLabel={g.name} onPress={() => router.push({ pathname: '/schools/[slug]', params: { slug: g.slug } })} style={styles.savedRow}>
+            <Text style={styles.savedName}>{g.name}</Text>
+            <Text style={styles.hint}>{[g.neighborhood, g.city?.name].filter(Boolean).join(' · ')}</Text>
+          </Pressable>
+        ))
+      )}
+    </>
+  );
+}
+
 export default function AccountScreen() {
   const styles = useStyles();
   const session = useSession();
@@ -49,6 +71,7 @@ export default function AccountScreen() {
     await authClient.signOut();
     // Gated school pages must not stay in the cache after signing out.
     queryClient.removeQueries({ queryKey: ['school'] });
+    queryClient.removeQueries({ queryKey: ['saved'] });
     setSigningOut(false);
   }
 
@@ -56,12 +79,15 @@ export default function AccountScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <RankBar stripes={2} width={52} />
       {session.isPending ? null : user ? (
-        <Card style={styles.card}>
-          <Label>Signed in</Label>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.body}>{user.email}</Text>
-          <ActionButton label={signingOut ? 'Signing out…' : 'Sign out'} variant="outline" onPress={signOut} disabled={signingOut} style={styles.action} />
-        </Card>
+        <>
+          <Card style={styles.card}>
+            <Label>Signed in</Label>
+            <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.body}>{user.email}</Text>
+            <ActionButton label={signingOut ? 'Signing out…' : 'Sign out'} variant="outline" onPress={signOut} disabled={signingOut} style={styles.action} />
+          </Card>
+          <SavedGyms />
+        </>
       ) : (
         <Card style={styles.card}>
           <Text style={styles.name}>{"You're browsing as a guest"}</Text>
@@ -93,4 +119,6 @@ const useStyles = makeStyles((t) => ({
   segmentText: { ...t.type.label, fontSize: 15, color: t.colors.textSecondary },
   segmentTextOn: { color: t.colors.onInverse },
   hint: { ...t.type.body, fontSize: 13, color: t.colors.textSecondary, marginTop: 8 },
+  savedRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.colors.outline },
+  savedName: { ...t.type.bodySemibold, fontSize: 16, color: t.colors.text },
 }));

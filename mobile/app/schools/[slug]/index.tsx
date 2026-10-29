@@ -81,6 +81,7 @@ export default function SchoolScreen() {
           onPress={async () => {
             await authClient.signOut();
             queryClient.removeQueries({ queryKey: ['school'] });
+            queryClient.removeQueries({ queryKey: ['saved'] });
             router.replace(signIn);
           }}
         />

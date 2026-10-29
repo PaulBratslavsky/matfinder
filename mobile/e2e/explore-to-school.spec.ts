@@ -102,6 +102,12 @@ test('explore → filters → preview → View gym → sign up → full gym page
   await expect(page.getByText("Thanks, we'll check it")).toBeVisible();
   await page.getByRole('button', { name: 'Back to the gym' }).click();
 
+  await page.getByRole('button', { name: 'Save gym' }).click();
+  await expect(page.getByRole('button', { name: 'Saved. Tap to remove' })).toBeVisible();
+  await page.goto('/account');
+  await expect(page.getByRole('link', { name: target.name })).toBeVisible();
+  await page.goBack();
+
   // Claim the gym: the form, then "being reviewed" on the gym page.
   await page.getByText('Claim it', { exact: true }).click();
   await expect(page).toHaveURL(`/schools/${target.slug}/claim`);
