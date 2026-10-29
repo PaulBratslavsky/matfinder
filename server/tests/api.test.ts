@@ -4,6 +4,7 @@
  * ALLOW_ADMIN_BOOTSTRAP on a fresh database and are skipped otherwise).
  */
 import { randomBytes } from 'node:crypto';
+import Database from 'better-sqlite3';
 import { beforeAll, describe, expect, inject, it } from 'vitest';
 import { DIRECTORY_FIELDS } from '../src/lib/directory';
 import { haversineMiles, type Coords } from '../src/lib/radius';
@@ -898,6 +899,21 @@ describe('account deletion (C15)', () => {
     const board = await (await fetch(`${API}/matfinder/reports`, { headers: { Authorization: `Bearer ${jwt}` } })).json();
     expect(JSON.stringify(board)).not.toContain(marker);
   });
+
+  it("deletes the user's saved gyms", async (ctx) => {
+    if (process.env.API_URL && !process.env.API_URL.includes(':1342')) return ctx.skip(); // reads the local test DB
+    const db = new Database('.tmp/test.db', { readonly: true });
+    const count = () => (db.prepare('SELECT COUNT(*) AS n FROM matfinder_saved_gyms').get() as { n: number }).n;
+    const email = `it-delsave-${randomBytes(5).toString('hex')}@example.test`;
+    const password = randomBytes(12).toString('hex');
+    const up = await post('/api/auth/sign-up/email', { name: 'Saver', email, password });
+    const cookie = up.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    expect((await fetch(`${API}/api/matfinder/saved/sample-summerlin-bjj-demo`, { method: 'PUT', headers: { cookie } })).status).toBe(200);
+    const before = count();
+    expect((await post('/api/auth/delete-user', { password }, cookie)).status).toBe(200);
+    expect(count()).toBe(before - 1);
+    db.close();
+  });
 });
 
 describe('problem reports', () => {
@@ -942,5 +958,25 @@ describe('problem reports', () => {
     const slug = 'sample-henderson-grappling-demo';
     const [a, b] = await Promise.all([report(user, { schoolSlug: slug, kind: 'closed' }), report(user, { schoolSlug: slug, kind: 'closed' })]);
     expect([a.status, b.status].sort()).toEqual([201, 409]);
+  });
+});
+
+describe('saved gyms', () => {
+  const call = (method: string, path: string, cookie?: string) => fetch(`${API}/api/matfinder${path}`, { method, headers: cookie ? { cookie } : {} });
+
+  it('saves, lists, de-duplicates and removes; signed-out calls are refused; one user never sees another’s list', async () => {
+    expect((await call('GET', '/saved')).status).toBeGreaterThanOrEqual(401);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo')).status).toBeGreaterThanOrEqual(401);
+    const a = await signUp();
+    const b = await signUp();
+    expect((await call('PUT', '/saved/no-such-gym', a)).status).toBe(404);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    expect((await call('PUT', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    const list = await (await call('GET', '/saved', a)).json();
+    expect(list.items.map((g: { slug: string }) => g.slug)).toEqual(['sample-summerlin-bjj-demo']);
+    expect(list.items[0]).toMatchObject({ name: expect.any(String), city: { slug: 'las-vegas' } });
+    expect((await (await call('GET', '/saved', b)).json()).items).toEqual([]);
+    expect((await call('DELETE', '/saved/sample-summerlin-bjj-demo', a)).status).toBe(200);
+    expect((await (await call('GET', '/saved', a)).json()).items).toEqual([]);
   });
 });

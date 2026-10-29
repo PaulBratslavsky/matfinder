@@ -34,6 +34,7 @@ export const indexes = (t: (table: string) => string): IndexSpec[] => [
   { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_knowledge_dedupe_draft_uq ON ${t('matfinder_knowledge')} (dedupe_key) WHERE published_at IS NULL` },
   // One open problem report per user per gym (the plugin's reports service maps a violation to 409 REPORT_OPEN).
   { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_reports_open_uq ON ${t('matfinder_reports')} (school_document_id, user_id) WHERE status = 'open'` },
+  { unique: true, sql: `CREATE UNIQUE INDEX IF NOT EXISTS matfinder_saved_gyms_uq ON ${t('matfinder_saved_gyms')} (user_id, school_document_id)` },
   // Not unique: the nearby query's bounding box (plan 08, M14) on the columns mirrored from `location`.
   { unique: false, sql: `CREATE INDEX IF NOT EXISTS schools_lat_lng_idx ON ${t('schools')} (latitude, longitude)` },
 ];

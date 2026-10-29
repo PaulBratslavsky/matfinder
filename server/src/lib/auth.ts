@@ -25,6 +25,7 @@ export const auth = betterAuth({
         if (!row?.documentId) return;
         const { claims } = await strapi.plugin('matfinder').service('claims').forgetUser(row.documentId);
         await strapi.plugin('matfinder').service('reports').forgetUser(row.documentId);
+        await strapi.plugin('matfinder').service('saved').forgetUser(row.documentId);
         strapi.log.info(`[matfinder] account deleted: ${claims} claim(s) cleared`);
       },
     },

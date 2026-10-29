@@ -24,6 +24,10 @@ export const GRANTS: Record<'public' | 'authenticated', string[]> = {
     'plugin::matfinder.gym-chat.ask',
     // Report a problem with a gym (MatFinder plugin).
     'plugin::matfinder.report.create',
+    // Saved gyms (MatFinder plugin).
+    'plugin::matfinder.saved.find',
+    'plugin::matfinder.saved.save',
+    'plugin::matfinder.saved.remove',
   ],
 };
 
