@@ -9,6 +9,7 @@ import { classTypeLabel, formatTime, styleLabel, toMinutes, type CityNow } from 
 import { sourceLine, verifiedLine } from '@/lib/verified';
 import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 import { NoticeBanner } from '../school/NoticeBanner';
+import { ReportLink } from '../school/ReportLink';
 
 /** The next class today, big: "Open mat · 7:00 pm", when it ends and how long until it starts (or is left). */
 function NextSessionCard({ school, state, now }: { school: DirectorySchool; state: SessionState; now: CityNow }) {
@@ -102,6 +103,7 @@ export function SchoolPreview({
         <Text style={[styles.trustText, verified.stale && styles.stale]}>{verified.text}</Text>
         <Text style={styles.trustText}>{sourceLine(school.addedFromWeb)}</Text>
       </View>
+      <ReportLink slug={school.slug} />
 
       <Link href={{ pathname: '/schools/[slug]', params: { slug: school.slug } }} asChild>
         <ActionButton label="View gym" size="lg" style={styles.view} />

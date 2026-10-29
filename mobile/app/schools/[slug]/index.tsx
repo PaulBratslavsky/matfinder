@@ -16,6 +16,7 @@ import { NextClassCard } from '@/components/school/NextClassCard';
 import { NoticeBanner } from '@/components/school/NoticeBanner';
 import { PriceTiles } from '@/components/school/PriceTiles';
 import { ProgramChips } from '@/components/school/ProgramChips';
+import { ReportLink } from '@/components/school/ReportLink';
 import { SchoolHeader } from '@/components/school/SchoolHeader';
 import { SchoolTopBar } from '@/components/school/SchoolTopBar';
 import { VisitChecklist } from '@/components/school/VisitChecklist';
@@ -169,6 +170,7 @@ export default function SchoolScreen() {
 
         <SectionTitle>Contact</SectionTitle>
         <ContactList contact={s.contact} teamWebsite={s.affiliation?.website} />
+        <ReportLink slug={s.slug} />
 
         {!!s.description?.length && (
           <>

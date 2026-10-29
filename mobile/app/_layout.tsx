@@ -47,6 +47,7 @@ function ThemedStack() {
         <Stack.Screen name="index" options={{ headerShown: false, title: 'MatFinder' }} />
         <Stack.Screen name="schools/[slug]/index" options={{ headerShown: false, title: 'Gym' }} />
         <Stack.Screen name="schools/[slug]/claim" options={{ title: 'Claim this gym' }} />
+        <Stack.Screen name="schools/[slug]/report" options={{ title: 'Report a problem' }} />
         {/* "Ask about this gym": a sheet over the gym page on iOS and Android, a page on the web. */}
         <Stack.Screen name="schools/[slug]/ask" options={{ title: 'Ask about this gym', presentation: Platform.OS === 'web' ? 'card' : 'modal' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />

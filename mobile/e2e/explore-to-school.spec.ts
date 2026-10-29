@@ -94,6 +94,14 @@ test('explore → filters → preview → View gym → sign up → full gym page
   await page.reload();
   await expect(page.getByText('Coaches', { exact: true })).toBeVisible();
 
+  await page.getByRole('link', { name: /Report a problem/ }).click();
+  await expect(page.getByText('Report a problem').filter({ visible: true }).first()).toBeVisible();
+  await page.getByRole('radio', { name: 'Schedule is wrong' }).click();
+  await page.getByLabel("What's wrong?").fill('E2E: Monday open mat moved (Demo)');
+  await page.getByRole('button', { name: 'Send report' }).click();
+  await expect(page.getByText("Thanks, we'll check it")).toBeVisible();
+  await page.getByRole('button', { name: 'Back to the gym' }).click();
+
   // Claim the gym: the form, then "being reviewed" on the gym page.
   await page.getByText('Claim it', { exact: true }).click();
   await expect(page).toHaveURL(`/schools/${target.slug}/claim`);
