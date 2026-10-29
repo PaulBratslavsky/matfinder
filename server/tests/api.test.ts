@@ -192,6 +192,18 @@ describe('MCP (curator tools)', () => {
     expect(pending.data.items.map((i: { slug: string }) => i.slug)).not.toContain(r.data.slug);
   });
 
+  it('upsert_school never changes lastVerifiedAt (only a person sets "verified")', async (ctx) => {
+    if (!token) return ctx.skip();
+    const slug = 'sample-summerlin-bjj-demo';
+    const before = await callTool(token, 'get_school_draft', { slug });
+    await callTool(token, 'upsert_school', { slug, lastVerifiedAt: '2001-01-01', neighborhood: 'Summerlin' });
+    const after = await callTool(token, 'get_school_draft', { slug });
+    expect(after.data.lastVerifiedAt).toBe(before.data.lastVerifiedAt);
+    const { body } = await mcp(token, 'tools/list');
+    const tool = body.result.tools.find((t: { name: string }) => t.name === 'upsert_school');
+    expect(Object.keys(tool.inputSchema.properties)).not.toContain('lastVerifiedAt');
+  });
+
   it('set_school_schedule rejects end <= start with the field path', async (ctx) => {
     if (!token) return ctx.skip();
     const r = await callTool(token, 'set_school_schedule', {
