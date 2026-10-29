@@ -40,6 +40,8 @@ export default ({ env }) => {
         aiApiKey: env('AI_API_KEY', '') || null,
         gymChatModel: env('AI_GYM_CHAT_MODEL', '') || 'claude-opus-5-5',
         adminChatModel: env('AI_ADMIN_CHAT_MODEL', '') || 'claude-opus-5-5',
+        // Gym chat questions per day from everyone together (B-8); empty means 200. Not a number: boot fails.
+        gymChatDailyTotal: Number(env('AI_GYM_CHAT_DAILY_TOTAL', '') || 200),
         aiScripted: env.bool('MATFINDER_AI_SCRIPTED', false),
       },
     },

@@ -10,6 +10,8 @@ export type MatFinderConfig = {
   gymChatModel: string;
   /** The model of the admin assistant (AI_ADMIN_CHAT_MODEL, plan 09 M19). */
   adminChatModel: string;
+  /** Gym chat questions per UTC day from everyone together (AI_GYM_CHAT_DAILY_TOTAL), counted in memory. */
+  gymChatDailyTotal: number;
   /**
    * Tests only (MATFINDER_AI_SCRIPTED): the chats answer from a script, with no model and no key. scripts/test-server.sh
    * turns it on; production never does.
@@ -25,6 +27,7 @@ export const DEFAULT_CONFIG: MatFinderConfig = {
   aiApiKey: null,
   gymChatModel: DEFAULT_MODEL,
   adminChatModel: DEFAULT_MODEL,
+  gymChatDailyTotal: 200,
   aiScripted: false,
 };
 
@@ -33,6 +36,9 @@ export function validateConfig(config: Partial<Record<keyof MatFinderConfig, unk
   if (config.aiApiKey !== null && typeof config.aiApiKey !== 'string') throw new Error('matfinder: aiApiKey must be a string or null');
   for (const key of ['gymChatModel', 'adminChatModel'] as const) {
     if (typeof config[key] !== 'string' || !config[key]) throw new Error(`matfinder: ${key} must be a model ID`);
+  }
+  if (!Number.isInteger(config.gymChatDailyTotal) || (config.gymChatDailyTotal as number) < 1) {
+    throw new Error('matfinder: gymChatDailyTotal must be a whole number of at least 1');
   }
   if (typeof config.aiScripted !== 'boolean') throw new Error('matfinder: aiScripted must be true or false');
 }
@@ -46,6 +52,7 @@ export function getConfig(strapi: Core.Strapi): MatFinderConfig {
     aiApiKey: read('aiApiKey') || null,
     gymChatModel: read('gymChatModel') || DEFAULT_MODEL,
     adminChatModel: read('adminChatModel') || DEFAULT_MODEL,
+    gymChatDailyTotal: read('gymChatDailyTotal'),
     aiScripted: read('aiScripted') === true,
   };
 }

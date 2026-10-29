@@ -151,6 +151,18 @@ describe('the conversation’s limits', () => {
     now = new Date('2026-10-22T00:00:01Z');
     expect(counter.take('a')).toBe(true);
   });
+
+  it('refuses a conversation over 60,000 characters in all, even when each turn is within its own limit', () => {
+    const assistant = (content: string) => ({ id: Math.random().toString(), role: 'assistant', content });
+    const turns = Array.from({ length: 4 }, () => [user('Hi'), assistant('x'.repeat(15_500))]).flat();
+    expect(checkConversation([...turns, user('Hi')])).toBe('chat_too_long');
+    expect(checkConversation([...turns.slice(0, 6), user('Hi')])).toBeNull();
+  });
+
+  it('says whether a key is under the limit without counting', () => {
+    const counter = new DailyCounter(1, () => new Date('2026-10-21T10:00:00Z'));
+    expect([counter.has('a'), counter.has('a'), counter.take('a'), counter.has('a')]).toEqual([true, true, true, false]);
+  });
 });
 
 describe('errors in words', () => {
@@ -290,5 +302,18 @@ describe('a gym chat turn (real chat(), fake model)', () => {
   it('refuses a body that is not a run input', async () => {
     const { service } = fakeStrapi({ aiApiKey: 'sk-test' });
     await expect(service.parseBody({ question: 'hi' })).rejects.toThrow(/is not a valid AG-UI RunAgentInput/);
+  });
+
+  it('stops everyone at the daily total, and counts a question only when the account may ask', async () => {
+    const { service } = fakeStrapi({ aiApiKey: 'sk-test', gymChatDailyTotal: 2 });
+    const read = async (response: Response) => (await response.text()).includes('"code":"service_limit"');
+    const ask = async (userKey: string) => {
+      const fake = fakeText();
+      fake.setResponses([{ text: 'Yes.' }]);
+      return read(await service.turn(await service.parseBody(runInput(['Hi'])), { userKey, slug: 'sample-summerlin-bjj-demo', responseController: new AbortController(), adapter: fake as any }));
+    };
+    expect(await ask('a')).toBe(false);
+    expect(await ask('b')).toBe(false);
+    expect(await ask('c')).toBe(true); // the third question today, from anyone
   });
 });

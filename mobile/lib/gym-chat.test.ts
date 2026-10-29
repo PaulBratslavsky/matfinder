@@ -41,6 +41,10 @@ describe('chat errors in words', () => {
       text: "You've asked a lot of questions today. Try again tomorrow.",
       newChat: false,
     });
+    expect(chatErrorView(Object.assign(new Error("Ask about this gym has reached today's limit. Try again tomorrow."), { code: 'service_limit' }))).toEqual({
+      text: "Ask about this gym has reached today's limit. Try again tomorrow.",
+      newChat: false,
+    });
     expect(chatErrorView(Object.assign(new Error('This chat is long. Start a new one to keep asking.'), { code: 'chat_too_long' }))?.newChat).toBe(true);
   });
 
