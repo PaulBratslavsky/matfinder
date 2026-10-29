@@ -141,3 +141,12 @@ test('explore → filters → preview → View gym → sign up → full gym page
   await page.goto(`/schools/${target.slug}`);
   await expect(page).toHaveURL(`/sign-in?redirect=${redirect}`);
 });
+
+test('the web app is installable: manifest linked and served', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
+  const res = await request.get('/manifest.webmanifest');
+  expect(res.status()).toBe(200);
+  expect((await res.json()).name).toBe('MatFinder');
+  expect((await request.get('/icons/icon-512.png')).status()).toBe(200);
+});
