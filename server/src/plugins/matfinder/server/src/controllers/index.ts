@@ -1,3 +1,4 @@
+import assistant from './assistant';
 import claim from './claim';
 import claims from './claims';
 import gymChat from './gym-chat';
@@ -6,4 +7,4 @@ import report from './report';
 import reports from './reports';
 import saved from './saved';
 
-export default { claim, claims, 'gym-chat': gymChat, gyms, report, reports, saved };
+export default { assistant, claim, claims, 'gym-chat': gymChat, gyms, report, reports, saved };

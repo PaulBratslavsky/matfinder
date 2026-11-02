@@ -5,4 +5,6 @@ export const PERMISSIONS = {
   review: [{ action: 'plugin::matfinder.claims.review', subject: null }],
   /** useRBAC → allowedActions.canReview */
   reviewReports: [{ action: 'plugin::matfinder.reports.review', subject: null }],
+  /** useRBAC → allowedActions.canUse: the Assistant tab (plan 09, M19). */
+  assistant: [{ action: 'plugin::matfinder.assistant.use', subject: null }],
 };

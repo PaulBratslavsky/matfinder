@@ -14,7 +14,10 @@ export type ChatAdapter = AnyTextAdapter;
 /** The AG-UI run input `chatParamsFromRequestBody` reads, with `messages` ready for `chat()`. */
 export type ChatParams = Awaited<ReturnType<Sdk['chatParamsFromRequestBody']>>;
 /** One request as an adapter receives it: the system prompts and the conversation. */
-export type ScriptedRequest = { systemPrompts?: Array<string | { content: string }>; messages: Array<{ role: string; content: unknown }> };
+export type ScriptedRequest = {
+  systemPrompts?: Array<string | { content: string }>;
+  messages: Array<{ role: string; content: unknown; toolCalls?: { id: string; function: { name: string; arguments: string } }[]; toolCallId?: string }>;
+};
 
 type AnthropicModel = Parameters<typeof import('@tanstack/ai-anthropic').createAnthropicChat>[0];
 
@@ -57,19 +60,45 @@ export async function anthropicAdapter(model: string, apiKey: string): Promise<C
   return anthropic.createAnthropicChat(model as AnthropicModel, apiKey) as unknown as ChatAdapter;
 }
 
+/** One scripted model turn: text, or tool calls (the assistant's scripted flows). */
+export type ScriptedTurn = { text?: string; toolCalls?: { name: string; input: unknown }[] };
+
+/** How many model turns one scripted request can take: more than any agent loop here allows. */
+const SCRIPTED_TURNS = 12;
+
 /**
- * Tests only: TanStack AI's fake adapter (`@tanstack/ai/testing`), answering every request with `answer(request)`,
+ * Tests only: TanStack AI's fake adapter (`@tanstack/ai/testing`), answering each model turn with `answer(request)`,
  * streamed in small pieces like a model. The specifier is a variable because the repo's TypeScript (Node module
  * resolution) can't see that subpath's types; the bundler leaves it as a runtime import.
  */
-export async function scriptedAdapter(answer: (request: ScriptedRequest) => string): Promise<ChatAdapter> {
+export async function scriptedAdapter(answer: (request: ScriptedRequest) => string | ScriptedTurn): Promise<ChatAdapter> {
   const specifier = '@tanstack/ai/testing';
   const { fakeText } = (await import(specifier)) as {
     fakeText: (options?: { model?: string; tokensPerSecond?: number }) => {
-      setResponses(steps: Array<(call: { request: ScriptedRequest }) => { text: string }>): void;
+      setResponses(steps: Array<(call: { request: ScriptedRequest }) => ScriptedTurn>): void;
     };
   };
   const fake = fakeText({ model: 'scripted', tokensPerSecond: 2000 });
-  fake.setResponses([({ request }) => ({ text: answer(request) })]);
+  const step = ({ request }: { request: ScriptedRequest }) => {
+    const turn = answer(request);
+    return typeof turn === 'string' ? { text: turn } : turn;
+  };
+  fake.setResponses(Array.from({ length: SCRIPTED_TURNS }, () => step));
   return fake as unknown as ChatAdapter;
+}
+
+/** A tool as `toTools` takes it: plain data and a function, with no SDK in it. */
+export type ToolSpec = { name: string; description: string; input: unknown; write: boolean; execute: (args: any) => Promise<unknown> };
+
+/**
+ * Specs as tools for `chat()`: each runs on the server; a write is defined with `needsApproval`, so the run pauses
+ * for the admin's decision and the tool runs only when it's approved.
+ */
+export async function toTools(specs: readonly ToolSpec[]): Promise<unknown[]> {
+  const { toolDefinition } = await loadSdk();
+  return specs.map((spec) =>
+    toolDefinition({ name: spec.name, description: spec.description, inputSchema: spec.input as never, needsApproval: spec.write }).server((args: unknown) =>
+      spec.execute(args),
+    ),
+  );
 }

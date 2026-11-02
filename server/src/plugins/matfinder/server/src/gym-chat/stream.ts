@@ -3,12 +3,14 @@ import { personErrorOf, type PersonError, type RawError } from './errors';
 /** One event of the stream `chat()` gives (AG-UI), with the fields read here. */
 export type Chunk = { type: string; [field: string]: any };
 
-/** Events the wrapper adds, which the app turns into a note under the answer. */
-export const CUSTOM_EVENTS = { declined: 'declined', cutOff: 'cut_off' } as const;
+/** Events the wrapper adds, which the app or the admin tab turns into a note under the answer. */
+export const CUSTOM_EVENTS = { declined: 'declined', cutOff: 'cut_off', maxTurns: 'max_turns' } as const;
 
-export type TurnSummary = { ms: number; finishReason: string | null; usage: unknown; failed: boolean };
+export type TurnSummary = { ms: number; finishReason: string | null; usage: unknown; failed: boolean; tools: string[]; paused: boolean };
 
 export type WrapOptions = {
+  /** The words for an error, from its raw code. Default: what a person in the app reads (gym-chat/errors.ts). */
+  describe?: (raw: RawError) => { code: string; message: string };
   /** Called once per error the source reports or throws, with the original, before it's rewritten for the person. */
   onSourceError?: (raw: RawError) => void;
   /** Called once when the stream ends, however it ends. */
@@ -27,7 +29,7 @@ const finishReasonOf = (chunk: Chunk): string | null => chunk.finishReason ?? ch
 const custom = (name: string): Chunk => ({ type: 'CUSTOM', name, value: {}, timestamp: Date.now() });
 
 /** A RUN_ERROR with the person's text and code only: nothing the provider wrote is copied. */
-export const errorChunk = (error: PersonError): Chunk => ({
+export const errorChunk = (error: PersonError | { code: string; message: string }): Chunk => ({
   type: 'RUN_ERROR',
   timestamp: Date.now(),
   message: error.message,
@@ -44,14 +46,16 @@ const quietly = (run: () => void) => {
 };
 
 /**
- * The stream `chat()` gives, made safe to send to a person (after the maison plugin's `wrapStream`):
+ * The stream `chat()` gives, made safe to send to a person or an admin (after the maison plugin's `wrapStream`):
  * - a RUN_ERROR, or a throw, becomes one RUN_ERROR in plain words and ends the stream; the original goes to `onSourceError`;
  * - the whole answer has `deadlineMs`; past it the stream ends with a `timeout` RUN_ERROR and the model call stops;
- * - a turn that ends with "stop" and no text is a refusal: a `declined` event follows it; one that ends with "length"
- *   gets a `cut_off` event.
+ * - a model turn that ends with "stop", no text and no tool call is a refusal: a `declined` event follows it; one that
+ *   ends with "length" gets a `cut_off` event;
+ * - when the agent loop's last turn still asked for tools (its turn cap), a `max_turns` event ends the stream, unless
+ *   the run paused for an approval.
  */
 export async function* wrapStream(source: AsyncIterable<Chunk>, options: WrapOptions): AsyncGenerator<Chunk> {
-  const { onSourceError, onDone, deadlineMs, chatController, responseSignal } = options;
+  const { onSourceError, onDone, deadlineMs, chatController, responseSignal, describe = personErrorOf } = options;
   const startedAt = Date.now();
   const iterator = source[Symbol.asyncIterator]();
   let signalClosed: () => void = () => {};
@@ -66,13 +70,16 @@ export async function* wrapStream(source: AsyncIterable<Chunk>, options: WrapOpt
   let timer: ReturnType<typeof setTimeout> | undefined;
   let sourceDone = false;
   let sawText = false;
+  let sawToolCall = false;
+  let paused = false;
+  const tools: string[] = [];
   let finishReason: string | null = null;
   let usage: unknown = null;
   let failed = false;
   const fail = (raw: RawError): Chunk => {
     failed = true;
     if (onSourceError) quietly(() => onSourceError(raw));
-    return errorChunk(personErrorOf(raw));
+    return errorChunk(describe(raw));
   };
 
   try {
@@ -96,7 +103,7 @@ export async function* wrapStream(source: AsyncIterable<Chunk>, options: WrapOpt
       if (step === TIMED_OUT) {
         failed = true;
         chatController.abort();
-        yield errorChunk(personErrorOf({ code: 'timeout' }));
+        yield errorChunk(describe({ code: 'timeout' }));
         return;
       }
       if (step.done) {
@@ -110,19 +117,27 @@ export async function* wrapStream(source: AsyncIterable<Chunk>, options: WrapOpt
         return;
       }
       if (chunk.type === 'TEXT_MESSAGE_CONTENT' && typeof chunk.delta === 'string' && chunk.delta.trim()) sawText = true;
+      if (chunk.type === 'TOOL_CALL_START') {
+        sawToolCall = true;
+        tools.push(chunk.toolCallName ?? chunk.toolName ?? 'unknown');
+      }
       yield chunk;
       if (chunk.type === 'RUN_FINISHED') {
         finishReason = finishReasonOf(chunk);
         usage = chunk.usage ?? null;
-        if (finishReason === 'stop' && !sawText) yield custom(CUSTOM_EVENTS.declined);
+        paused = chunk.outcome?.type === 'interrupt';
+        if (finishReason === 'stop' && !sawText && !sawToolCall) yield custom(CUSTOM_EVENTS.declined);
         if (finishReason === 'length') yield custom(CUSTOM_EVENTS.cutOff);
+        sawText = false;
+        sawToolCall = false;
       }
     }
+    if (finishReason === 'tool_calls' && !paused) yield custom(CUSTOM_EVENTS.maxTurns);
   } finally {
     clearTimeout(timer);
     responseSignal.removeEventListener('abort', onClose);
     // A source still running is told to stop, not waited for.
     if (!sourceDone) quietly(() => void Promise.resolve(iterator.return?.()).catch(() => {}));
-    if (onDone) quietly(() => onDone({ ms: Date.now() - startedAt, finishReason, usage, failed }));
+    if (onDone) quietly(() => onDone({ ms: Date.now() - startedAt, finishReason, usage, failed, tools, paused }));
   }
 }
