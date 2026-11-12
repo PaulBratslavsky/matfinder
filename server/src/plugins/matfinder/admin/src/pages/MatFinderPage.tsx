@@ -3,6 +3,7 @@ import { Plus } from '@strapi/icons';
 import { Layouts, Page, RESPONSIVE_DEFAULT_SPACING, useFetchClient, useRBAC } from '@strapi/strapi/admin';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { AssistantTab } from '../components/assistant/AssistantTab';
 import { ClaimsTab } from '../components/ClaimsTab';
 import { FromWebTab } from '../components/FromWebTab';
 import { GymsTab } from '../components/GymsTab';
@@ -17,8 +18,13 @@ const CREATE_GYM = [{ action: 'plugin::content-manager.explorer.create', subject
 export default function MatFinderPage() {
   const { get } = useFetchClient();
   const { allowedActions } = useRBAC(CREATE_GYM);
+  const assistant = useRBAC(PERMISSIONS.assistant);
+  const canUseAssistant = !!assistant.allowedActions.canUse;
   const [params, setParams] = useSearchParams();
-  const tab = tabFromQuery(params.get('tab'));
+  const asked = tabFromQuery(params.get('tab'));
+  // ?tab=assistant without the permission opens Gyms (once the role is known).
+  const tab: TabId = asked === 'assistant' && !canUseAssistant && !assistant.isLoading ? 'gyms' : asked;
+  const tabs = TABS.filter((t) => t.id !== 'assistant' || canUseAssistant);
   const [counts, setCounts] = useState<Partial<Record<TabId, number>>>({});
   // Tab badges: claims waiting for review, and gyms from the web that aren't live.
   const loadCounts = useCallback(() => {
@@ -52,7 +58,7 @@ export default function MatFinderPage() {
         <Tabs.Root variant="simple" value={tab} onValueChange={(v: string) => setParams({ tab: v }, { replace: true })}>
           <Box paddingLeft={RESPONSIVE_DEFAULT_SPACING} paddingRight={RESPONSIVE_DEFAULT_SPACING} paddingBottom={6}>
             <Tabs.List aria-label="MatFinder sections">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <Tabs.Trigger key={t.id} value={t.id}>
                   <Flex tag="span" gap={2} alignItems="center">
                     {t.label}
@@ -76,6 +82,12 @@ export default function MatFinderPage() {
           <Tabs.Content value="from-web">
             <FromWebTab onCount={onFromWebCount} />
           </Tabs.Content>
+          {/* Kept mounted (hidden) on other tabs, so the conversation survives a look at Claims and back. */}
+          {canUseAssistant && (
+            <Tabs.Content value="assistant" forceMount hidden={tab !== 'assistant'}>
+              <AssistantTab onAnswered={loadCounts} />
+            </Tabs.Content>
+          )}
         </Tabs.Root>
       </Page.Main>
     </Page.Protect>

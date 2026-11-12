@@ -168,7 +168,7 @@ model-turn cap, staff-readable errors, provider text kept out), the controller's
 a fresh admin token (Strapi's fetch client refreshes it first, then the stream sends it as `Bearer`).
 
 - **RBAC:** a new action, `plugin::matfinder.assistant.use` ("Use the MatFinder assistant"). Super Admin has it.
-- **Routes:** `GET /matfinder/assistant/status` → `{ ready, model, tools: [{ name, label, writes }] }` (never the
+- **Routes:** `GET /matfinder/assistant/status` → `{ ready, model, tools: [{ name, label, write }] }` (never the
   key), `POST /matfinder/assistant/chat` (one turn, streamed).
 - **Tools**, each offered only when the admin's role holds the action in the last column:
 
@@ -193,10 +193,16 @@ a fresh admin token (Strapi's fetch client refreshes it first, then the stream s
   chat, MCP and the admin buttons share one service layer. Writes go live as MCP writes do (`autoPublish`).
 - **Approval:** write tools are defined with `needsApproval: true`. A call ends the run with an interrupt, and the
   tab shows a card: what it does in words ("Set the schedule of Garage Grappling: 14 classes, replacing 12"), the
-  arguments, **Approve** and **Deny** (`interrupt.resolveInterrupt(true | false)`). The browser posts again with
-  `resume` and `parentRunId`, which the server passes to `chat()`; it rebuilds the paused call from the history, so
-  nothing is stored in between. Approve runs the tool on the server; Deny tells the model it was refused. Nothing is
-  written without a click. (Maison's assistant is read-only and drops `resume`; this is the part that's new.)
+  arguments, **Approve** and **Deny**. The browser posts again with `resume` and `parentRunId`, which the server passes
+  to `chat()`; it rebuilds the paused call from the history, so nothing is stored in between. Approve runs the tool on
+  the server; Deny tells the model it was refused. Nothing is written without a click. (Maison's assistant is
+  read-only and drops `resume`; this is the part that's new.)
+  - *Found in M19:* the browser has no copy of the server's tool schemas, so `@tanstack/ai-client` reads the pause as
+    a generic interrupt (id `approval_<toolCallId>`, no `toolCallId` field) and its `resolveInterrupt` takes the
+    server's response as is: `{ approved: true | false }`, not the boolean. `addToolApprovalResponse` only changes the
+    browser's copy for a server tool and sends nothing.
+  - Because the paused call is rebuilt from the history, the same approval sent twice would run the tool twice. The
+    server keeps each used decision per chat for an hour and answers a repeat with `already_decided`.
 - **The tab:** a chat panel in `Layouts.Content`: messages (Markdown, tables scroll inside their bubble), each tool
   call as a closed box ("Tool: find_schools · 3 results"), approval cards, quick prompts ("Which claims are
   waiting?", "Which gyms haven't had their schedule verified in 90 days?", "What did the web agent add this
