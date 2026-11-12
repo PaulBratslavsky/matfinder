@@ -6,9 +6,9 @@ import type { CityNow } from '@/lib/time';
 import { makeStyles } from '@/theme/ThemeProvider';
 import { SessionLine } from './SessionLine';
 
-/** The deciding fact for a visitor: members only, the drop-in price, or just "visitors welcome"; nothing if the gym hasn't said. */
+/** The deciding fact for a visitor: no drop-ins, the drop-in price, or just "visitors welcome"; nothing if the gym hasn't said. */
 export function visitChip(s: Pick<DirectorySchool, 'visitorsWelcome' | 'dropInFee' | 'currency'>) {
-  if (s.visitorsWelcome === false) return <Chip label="Members only" icon="lock-closed-outline" />;
+  if (s.visitorsWelcome === false) return <Chip label="No drop-ins" icon="lock-closed-outline" />;
   const fee = dropInLabel(s);
   if (s.visitorsWelcome) return <Chip label={fee ?? 'Visitors welcome'} />;
   return fee ? <Chip label={fee} /> : null;

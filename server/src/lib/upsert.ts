@@ -4,7 +4,7 @@ import { sameJson } from './equal';
 import { isUniqueViolation, ToolError } from './errors';
 import { slugifyWithFallback } from './slugify';
 
-export type UpsertResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus };
+export type UpsertResult = { documentId: string; slug: string; created: boolean; changedFields: string[]; status: DraftStatus; previousStatus?: DraftStatus };
 
 /** Draft status of one document, from its draft and published rows. */
 export async function statusOf(strapi: Core.Strapi, uid: UID.ContentType, documentId: string): Promise<DraftStatus> {
@@ -51,12 +51,13 @@ export async function upsertScalarDraft(
       if (!sameJson(value, existing?.[field])) data[field] = value;
     }
     const changedFields = Object.keys(data);
+    const previousStatus = existing ? await statusOf(strapi, opts.uid, existing.documentId) : undefined;
     const doc = existing
       ? changedFields.length
         ? await docs.update({ documentId: existing.documentId, data })
         : existing
       : await docs.create({ data: { ...data, slug } });
-    return { documentId: doc.documentId, slug: doc.slug, created: !existing, changedFields, status: await statusOf(strapi, opts.uid, doc.documentId) };
+    return { documentId: doc.documentId, slug: doc.slug, created: !existing, changedFields, status: await statusOf(strapi, opts.uid, doc.documentId), previousStatus };
   };
 
   const run = () => strapi.db.transaction(once);

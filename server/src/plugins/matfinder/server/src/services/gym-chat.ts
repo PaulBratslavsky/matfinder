@@ -38,6 +38,10 @@ export type TurnRequest = {
 /** The gym chat: whether it's set up, and one question answered as a stream (plan 09, M17). */
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   const daily = new DailyCounter(GYM_CHAT_LIMITS.questionsPerDay);
+  /** Everyone's questions today. Made on first use, so it reads the plugin config Strapi has loaded by then. */
+  let total: DailyCounter | null = null;
+  const everyone = () => (total ??= new DailyCounter(getConfig(strapi).gymChatDailyTotal));
+  const EVERYONE = '*';
 
   const ready = () => {
     const config = getConfig(strapi);
@@ -86,7 +90,10 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
 
       const gym = (await strapi.service('api::school.school').getBySlug(request.slug)) as (PublicGym & { documentId: string }) | null;
       if (!gym) return errorResponse('not_found');
+      // The total first: when it's used up nobody is charged a question. Synchronous, so no request slips between.
+      if (!everyone().has(EVERYONE)) return errorResponse('service_limit');
       if (!daily.take(request.userKey)) return errorResponse('daily_limit');
+      everyone().take(EVERYONE);
 
       try {
         const { chat, toServerSentEventsResponse } = await loadSdk();

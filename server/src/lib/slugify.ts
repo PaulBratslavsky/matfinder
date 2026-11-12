@@ -14,3 +14,17 @@ export function slugify(input: string): string {
 export function slugifyWithFallback(input: string, type: string): string {
   return slugify(input) || `${type}-${randomBytes(4).toString('hex').slice(0, 6)}`;
 }
+
+/**
+ * The first slug not in `taken`: `base`, then `base-<citySlug>` (unless `base` already ends with it), then that
+ * with `-2`, `-3`… Used when creating a school, so a name already listed (in any city) never selects that school.
+ */
+export function pickFreeSlug(base: string, citySlug: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(base)) return base;
+  const withCity = base === citySlug || base.endsWith(`-${citySlug}`) ? base : `${base}-${citySlug}`;
+  if (!taken.has(withCity)) return withCity;
+  for (let n = 2; ; n++) {
+    const candidate = `${withCity}-${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}

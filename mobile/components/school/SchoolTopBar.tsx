@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { RoundButton } from '@/components/kit';
+import { useToggleSaved } from '@/hooks/useSaved';
 import { makeStyles, useTheme } from '@/theme/ThemeProvider';
 
 /** The public web address of the app (EXPO_PUBLIC_WEB_URL), so shared links open for people without the app. */
@@ -29,6 +30,7 @@ export function SchoolTopBar({ name, slug, onBack }: { name: string; slug: strin
   const styles = useStyles();
   const { colors } = useTheme();
   const [copied, setCopied] = useState(false);
+  const { isSaved, toggle } = useToggleSaved(slug);
   return (
     <View style={styles.bar}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back to gyms" onPress={onBack} style={styles.back}>
@@ -39,6 +41,11 @@ export function SchoolTopBar({ name, slug, onBack }: { name: string; slug: strin
       </Pressable>
       <View style={styles.right}>
         {copied && <Text style={styles.copied}>Link copied</Text>}
+        <RoundButton
+          label={isSaved ? 'Saved. Tap to remove' : 'Save gym'}
+          icon={isSaved ? 'bookmark' : 'bookmark-outline'}
+          onPress={() => !toggle.isPending && toggle.mutate()}
+        />
         <RoundButton
           label="Share gym"
           icon="share-outline"

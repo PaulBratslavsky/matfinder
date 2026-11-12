@@ -13,8 +13,10 @@ import { Description } from '@/components/school/Description';
 import { Gallery } from '@/components/school/Gallery';
 import { GetThere } from '@/components/school/GetThere';
 import { NextClassCard } from '@/components/school/NextClassCard';
+import { NoticeBanner } from '@/components/school/NoticeBanner';
 import { PriceTiles } from '@/components/school/PriceTiles';
 import { ProgramChips } from '@/components/school/ProgramChips';
+import { ReportLink } from '@/components/school/ReportLink';
 import { SchoolHeader } from '@/components/school/SchoolHeader';
 import { SchoolTopBar } from '@/components/school/SchoolTopBar';
 import { VisitChecklist } from '@/components/school/VisitChecklist';
@@ -79,6 +81,7 @@ export default function SchoolScreen() {
           onPress={async () => {
             await authClient.signOut();
             queryClient.removeQueries({ queryKey: ['school'] });
+            queryClient.removeQueries({ queryKey: ['saved'] });
             router.replace(signIn);
           }}
         />
@@ -114,6 +117,7 @@ export default function SchoolScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}>
         <SchoolTopBar name={s.name} slug={s.slug} onBack={back} />
         <SchoolHeader school={s} today={now?.localDate ?? null} distanceMiles={distance} />
+        <NoticeBanner notice={s.notice} />
         <ClaimLine slug={s.slug} claimed={s.claimed} />
         {!!s.shortDescription && <Text style={styles.short}>{s.shortDescription}</Text>}
         {chatStatus.data?.ready && (
@@ -167,6 +171,7 @@ export default function SchoolScreen() {
 
         <SectionTitle>Contact</SectionTitle>
         <ContactList contact={s.contact} teamWebsite={s.affiliation?.website} />
+        <ReportLink slug={s.slug} />
 
         {!!s.description?.length && (
           <>

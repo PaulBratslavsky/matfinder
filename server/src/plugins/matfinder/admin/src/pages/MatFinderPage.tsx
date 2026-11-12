@@ -7,6 +7,7 @@ import { AssistantTab } from '../components/assistant/AssistantTab';
 import { ClaimsTab } from '../components/ClaimsTab';
 import { FromWebTab } from '../components/FromWebTab';
 import { GymsTab } from '../components/GymsTab';
+import { ReportsTab } from '../components/ReportsTab';
 import { PERMISSIONS } from '../permissions';
 import { createGymPath } from '../status';
 import { TABS, tabFromQuery, type TabId } from '../tabs';
@@ -26,12 +27,16 @@ export default function MatFinderPage() {
   const tab: TabId = asked === 'assistant' && !canUseAssistant && !assistant.isLoading ? 'gyms' : asked;
   const tabs = TABS.filter((t) => t.id !== 'assistant' || canUseAssistant);
   const [counts, setCounts] = useState<Partial<Record<TabId, number>>>({});
-  // Tab badges: claims waiting for review, and gyms from the web that aren't live.
+  // Tab badges: claims waiting for review, open problem reports, and gyms from the web that aren't live.
   const loadCounts = useCallback(() => {
     get('/matfinder/summary')
       .then((res) => {
-        const s = res.data as { gyms: { fromWeb: { notLive: number } }; claims: { pending: number; contacted: number } };
-        setCounts({ claims: s.claims.pending + s.claims.contacted, 'from-web': s.gyms.fromWeb.notLive });
+        const s = res.data as {
+          gyms: { fromWeb: { notLive: number } };
+          claims: { pending: number; contacted: number };
+          reports: { open: number };
+        };
+        setCounts({ claims: s.claims.pending + s.claims.contacted, reports: s.reports.open, 'from-web': s.gyms.fromWeb.notLive });
       })
       .catch(() => {});
   }, [get]);
@@ -44,7 +49,7 @@ export default function MatFinderPage() {
         <Page.Title>MatFinder</Page.Title>
         <Layouts.Header
           title="MatFinder"
-          subtitle="Every gym in the directory, owners' claims, and the gyms the agent found on the web."
+          subtitle="Every gym in the directory, owners' claims, problem reports, and the gyms the agent found on the web."
           primaryAction={
             allowedActions.canCreate ? (
               <Button tag={Link} to={createGymPath} startIcon={<Plus />} minWidth="max-content">
@@ -78,6 +83,9 @@ export default function MatFinderPage() {
           </Tabs.Content>
           <Tabs.Content value="claims">
             <ClaimsTab onChanged={loadCounts} />
+          </Tabs.Content>
+          <Tabs.Content value="reports">
+            <ReportsTab onChanged={loadCounts} />
           </Tabs.Content>
           <Tabs.Content value="from-web">
             <FromWebTab onCount={onFromWebCount} />

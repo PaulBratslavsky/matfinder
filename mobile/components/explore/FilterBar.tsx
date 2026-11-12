@@ -3,7 +3,7 @@ import type { Filters } from '@/lib/filters';
 import { makeStyles } from '@/theme/ThemeProvider';
 
 /**
- * The Explore filters: Training today (with how many are), Visitors welcome, and Gi / No-Gi as one choice
+ * The Explore filters: Training today (with how many are), Visitors welcome, Open mat, and Gi / No-Gi as one choice
  * (picking one clears the other). Active filters fill red.
  */
 export function FilterBar({ filters, onChange, trainingToday }: { filters: Filters; onChange: (f: Filters) => void; trainingToday: number }) {
@@ -36,6 +36,7 @@ export function FilterBar({ filters, onChange, trainingToday }: { filters: Filte
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
       {toggle('Training today', filters.today, { ...filters, today: !filters.today }, `Training today · ${trainingToday}`)}
       {toggle('Visitors welcome', filters.visitors, { ...filters, visitors: !filters.visitors })}
+      {toggle('Open mat', filters.openMat, { ...filters, openMat: !filters.openMat })}
       <View style={styles.group}>
         {style('Gi', 'gi')}
         <View style={styles.groupDivider} />

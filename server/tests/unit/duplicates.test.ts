@@ -56,6 +56,11 @@ describe('findDuplicates', () => {
     expect(found[0]).toMatchObject({ slug: 'sample-summerlin-bjj-demo' });
     expect(found[0].reasons).toEqual(['same phone', 'same Instagram', expect.stringMatching(/^\d+ m away$/)]);
   });
+  it('names: false skips the name signal (other cities) but keeps the identity signals', () => {
+    expect(findDuplicates({ name: 'Sample Summerlin BJJ (Demo)' }, [summerlin], { names: false })).toEqual([]);
+    expect(findDuplicates({ name: 'X', phone: '702-555-0101' }, [summerlin], { names: false })[0].reasons).toEqual(['same phone']);
+  });
+
   it('nothing in common → no candidates', () => {
     expect(findDuplicates({ name: 'Desert Fox Grappling', latitude: 36.3, longitude: -115.2 }, [summerlin, henderson])).toEqual([]);
   });

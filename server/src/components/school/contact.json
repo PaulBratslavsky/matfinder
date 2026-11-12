@@ -5,7 +5,7 @@
   "attributes": {
     "phone": { "type": "string" },
     "email": { "type": "email" },
-    "website": { "type": "string" },
-    "instagram": { "type": "string" }
+    "website": { "type": "text" },
+    "instagram": { "type": "text" }
   }
 }

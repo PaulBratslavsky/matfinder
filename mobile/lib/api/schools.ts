@@ -26,6 +26,14 @@ export type DirectorySchool = {
   todaySessions: Session[];
   /** An owner's claim was accepted. */
   claimed: boolean;
+  /** "Schedule verified" date (YYYY-MM-DD), set only by a person; null when never verified. */
+  lastVerifiedAt: string | null;
+  /** The AI agent added this gym from the web (not the team by hand). */
+  addedFromWeb: boolean;
+  /** The gym offers a free first class. */
+  freeTrial: boolean;
+  /** A short notice from the gym while it applies ("Closed Nov 27"), else null. */
+  notice: string | null;
 };
 
 export type Directory = {
@@ -102,4 +110,6 @@ export type SchoolPage = {
   todaySessions: Session[];
   nextSessionToday: (Session & { onNow: boolean }) | null;
   lastVerifiedAt: string | null;
+  addedFromWeb: boolean;
+  notice: string | null;
 };

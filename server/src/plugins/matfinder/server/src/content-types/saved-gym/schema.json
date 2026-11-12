@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "matfinder_saved_gyms",
+  "info": {
+    "singularName": "saved-gym",
+    "pluralName": "saved-gyms",
+    "displayName": "Saved gym",
+    "description": "A gym a signed-in user saved in the app."
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {
+    "content-manager": { "visible": false },
+    "content-type-builder": { "visible": false }
+  },
+  "attributes": {
+    "schoolDocumentId": { "type": "string", "required": true },
+    "userId": { "type": "string", "required": true, "private": true }
+  }
+}

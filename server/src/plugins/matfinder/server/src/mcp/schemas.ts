@@ -15,6 +15,8 @@ export const draftStatus = z.enum(['published', 'unpublished-changes', 'never-pu
 
 /** A Strapi `string` field (255-character app-layer max). */
 export const str = z.string().max(255);
+/** A web address or handle from a source page. Stored in `text` columns, so longer than `str`; matches sourceUrls. */
+export const urlText = z.string().max(500);
 /** Lowercase words joined by hyphens, as slugify() makes them. An unknown slug means "create", so a malformed one would add a duplicate. */
 export const slug = z
   .string()

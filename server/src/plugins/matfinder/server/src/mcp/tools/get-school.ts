@@ -29,6 +29,8 @@ export const getSchool: ToolDef = {
     amenities: z.record(z.string(), z.any()).nullable(),
     schedule: z.array(sessionOut),
     lastVerifiedAt: z.string().nullable(),
+    notice: z.string().nullable(),
+    noticeUntil: z.string().nullable(),
     updatedAt: z.string(),
   }),
   shrinkHint: 'The school is too large to return: lower excerptChars.',

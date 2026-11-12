@@ -1,11 +1,11 @@
-import { date, slug, str, upsertOutput, z } from '../schemas';
+import { date, slug, str, upsertOutput, urlText, z } from '../schemas';
 import { schoolService, type ToolDef } from '../types';
 
 export const upsertSchool: ToolDef = {
   name: 'upsert_school',
   title: 'Create or update a school',
   description:
-    'Create or partially update a BJJ school listing. The change is published right away (status in the result; notPublishedBecause says why if it could not be, e.g. no location). Only send the fields you want to change; pricing, contact and amenities are merged field by field. Call find_schools first to check whether the school already exists. Without a slug (or with an unknown one) it creates a school, which needs name, citySlug and address. Send the street address and the server geocodes it; only send latitude/longitude if you have exact coordinates. descriptionText is plain text, paragraphs separated by blank lines. headInstructorSlugs replaces the whole ordered list (create instructors with upsert_instructor first). Use set_school_schedule for the weekly schedule.',
+    'Create or partially update a BJJ school listing. The change is published right away (status in the result; notPublishedBecause says why if it could not be, e.g. no location). Only send the fields you want to change; pricing, contact and amenities are merged field by field. Call find_schools first to check whether the school already exists. Without a slug it always creates a new school (if the name is taken, the slug gets the city added); with an unknown slug it creates one with that slug. Creating needs name, citySlug and address. Send the street address and the server geocodes it; only send latitude/longitude if you have exact coordinates. descriptionText is plain text, paragraphs separated by blank lines. headInstructorSlugs replaces the whole ordered list (create instructors with upsert_instructor first). Use set_school_schedule for the weekly schedule. lastVerifiedAt ("Schedule verified" in the app) is set only by a person in the admin; this tool never changes it.',
   write: true,
   publishes: 'api::school.school',
   input: z.object({
@@ -35,7 +35,7 @@ export const upsertSchool: ToolDef = {
       .partial()
       .optional(),
     contact: z
-      .object({ phone: str.nullable(), email: z.string().email().max(255).nullable(), website: str.nullable(), instagram: str.nullable() })
+      .object({ phone: str.nullable(), email: z.string().email().max(255).nullable(), website: urlText.nullable(), instagram: urlText.nullable() })
       .partial()
       .optional(),
     amenities: z
@@ -50,9 +50,13 @@ export const upsertSchool: ToolDef = {
       })
       .partial()
       .optional(),
-    lastVerifiedAt: date.nullable().optional().describe('YYYY-MM-DD: when the listing was last checked against the source'),
+    notice: z.string().max(140).nullable().optional().describe("A short notice shown on the gym's listing, e.g. 'Closed Nov 27 for Thanksgiving'. Only from the gym's own pages or posts. null or an empty string removes it"),
+    noticeUntil: date.nullable().optional().describe('YYYY-MM-DD: the last day the notice applies. Omit or null to show it until it is removed'),
   }),
   output: upsertOutput,
   shrinkHint: 'The result is too large.',
-  run: (strapi, args) => schoolService(strapi).upsertDraft(args),
+  run: (strapi, args) => {
+    const input = { ...args, lastVerifiedAt: undefined };
+    return input.slug ? schoolService(strapi).upsertDraft(input) : schoolService(strapi).createDraft(input);
+  },
 };

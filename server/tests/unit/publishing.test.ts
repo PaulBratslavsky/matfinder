@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import publishing from '../../src/plugins/matfinder/server/src/services/publishing';
+import publishing, { EARLIER_CHANGES, NEVER_PUBLISHED } from '../../src/plugins/matfinder/server/src/services/publishing';
 import { draftStatus } from '../../src/plugins/matfinder/server/src/domain/status';
 
-type Row = { documentId: string; slug: string; updatedAt: string };
+type Row = { documentId: string; slug: string; updatedAt: string; origin?: string };
 
 /** A Document Service with one school: its draft and (optionally) its published row. */
 function fakeStrapi(opts: { draft: Row; published?: Row; autoPublish?: boolean; publishError?: Error }) {
@@ -52,6 +52,28 @@ describe('publishing agent writes', () => {
     const invalid = Object.assign(new Error('location must be defined'), { name: 'ValidationError' });
     const { service } = fakeStrapi({ draft, publishError: invalid });
     expect(await service.afterWrite(UID, 'agent-gym')).toEqual({ status: 'never-published', notPublishedBecause: 'location must be defined' });
+  });
+
+  it("leaves a draft that already had unpublished changes for a person to review", async () => {
+    const older = { ...draft, updatedAt: '2026-10-14T00:00:00.000Z' };
+    const { service, state } = fakeStrapi({ draft, published: older });
+    expect(await service.afterWrite(UID, 'agent-gym', 'unpublished-changes')).toEqual({ status: 'unpublished-changes', notPublishedBecause: EARLIER_CHANGES });
+    expect(state.publishCalls).toBe(0);
+    const live = fakeStrapi({ draft, published: older });
+    expect(await live.service.afterWrite(UID, 'agent-gym', 'published')).toEqual({ status: 'published' });
+    expect(live.state.publishCalls).toBe(1);
+  });
+
+  it('publishes a never-published draft only when the agent added it', async () => {
+    const manual = fakeStrapi({ draft: { ...draft, origin: 'manual' } });
+    expect(await manual.service.afterWrite(UID, 'agent-gym', 'never-published')).toEqual({ status: 'never-published', notPublishedBecause: NEVER_PUBLISHED });
+    expect(manual.state.publishCalls).toBe(0);
+    const agent = fakeStrapi({ draft: { ...draft, origin: 'web-agent' } });
+    await agent.service.afterWrite(UID, 'agent-gym', 'never-published');
+    expect(agent.state.publishCalls).toBe(1);
+    const created = fakeStrapi({ draft });
+    await created.service.afterWrite(UID, 'agent-gym', undefined);
+    expect(created.state.publishCalls).toBe(1);
   });
 
   it('rethrows anything that is not a validation error', async () => {
